@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savedBookmarksHeading = document.getElementById('saved-bookmarks-heading');
   const emptyStateContainer = document.querySelector('.saved-bookmarks-section .empty-state');
 
-  // Search input & clear elements
+  // Search input & clear elements (Phase 10 Search)
   const searchContainer = document.getElementById('search-container');
   const searchInput = document.getElementById('search-input');
   const searchClearBtn = document.getElementById('search-clear-btn');
@@ -39,6 +39,228 @@ document.addEventListener('DOMContentLoaded', async () => {
       searchClearBtn.classList.add('hidden');
       searchInput.focus();
       updateSavedBookmarksListState();
+    });
+  }
+
+  // --- SETTINGS VIEW LOGIC & SERVICES (Phase 12) ---
+  const settingsTriggerBtn = document.getElementById('settings-trigger-btn');
+  const settingsBackBtn = document.getElementById('settings-back-btn');
+  const homeView = document.getElementById('home-view');
+  const settingsView = document.getElementById('settings-view');
+
+  const settingsCountData = document.getElementById('settings-count-data');
+  const settingsCountStorage = document.getElementById('settings-count-storage');
+  const settingsVersionText = document.getElementById('settings-version-text');
+
+  const exportBookmarksBtn = document.getElementById('export-bookmarks-btn');
+  const importBookmarksTriggerBtn = document.getElementById('import-bookmarks-trigger-btn');
+  const importBookmarksFile = document.getElementById('import-bookmarks-file');
+  const clearAllBookmarksBtn = document.getElementById('clear-all-bookmarks-btn');
+
+  const clearConfirmBox = document.getElementById('clear-confirm-box');
+  const clearCancelBtn = document.getElementById('clear-cancel-btn');
+  const clearConfirmBtn = document.getElementById('clear-confirm-btn');
+
+  // Helper to dynamically update the bookmark count in Settings read-only rows
+  async function updateSettingsCounts() {
+    if (typeof TubeMarkStorage !== 'undefined') {
+      try {
+        const bookmarks = await TubeMarkStorage.getBookmarks();
+        const count = bookmarks.length;
+        if (settingsCountData) settingsCountData.textContent = count;
+        if (settingsCountStorage) settingsCountStorage.textContent = count;
+      } catch (err) {
+        console.error("[TubeMark] Failed to update settings count:", err);
+      }
+    }
+  }
+
+  // Populate dynamic version from Manifest V3
+  if (settingsVersionText) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getManifest === 'function') {
+        const manifest = chrome.runtime.getManifest();
+        settingsVersionText.textContent = manifest.version || '1.0.0';
+      } else {
+        settingsVersionText.textContent = '1.0.0';
+      }
+    } catch (err) {
+      settingsVersionText.textContent = '1.0.0';
+    }
+  }
+
+  // Settings trigger click handler
+  if (settingsTriggerBtn && homeView && settingsView) {
+    settingsTriggerBtn.addEventListener('click', async () => {
+      // Hide clear confirmation in settings initially
+      if (clearConfirmBox) clearConfirmBox.classList.add('hidden');
+
+      // Update bookmark counts in settings
+      await updateSettingsCounts();
+
+      // Switch views
+      homeView.classList.add('hidden');
+      settingsView.classList.remove('hidden');
+    });
+  }
+
+  // Back button click handler
+  if (settingsBackBtn && homeView && settingsView) {
+    settingsBackBtn.addEventListener('click', async () => {
+      // Switch views back to home
+      settingsView.classList.add('hidden');
+      homeView.classList.remove('hidden');
+
+      // Refresh main lists and counter elements on home view
+      await updateSavedBookmarksListState();
+
+      // If active tab exists, refresh save button visual state
+      const activeTab = await getActiveTab();
+      if (activeTab && activeTab.url) {
+        const activeVideoId = typeof TubeMarkYouTubeUtils !== 'undefined'
+          ? TubeMarkYouTubeUtils.getVideoId(activeTab.url)
+          : null;
+        if (activeVideoId) {
+          await updateSaveButtonVisualState(activeVideoId);
+        }
+      }
+    });
+  }
+
+  // Export Bookmarks Action
+  if (exportBookmarksBtn) {
+    exportBookmarksBtn.addEventListener('click', async () => {
+      try {
+        if (typeof TubeMarkStorage === 'undefined') {
+          showToast('Storage module not loaded.', true);
+          return;
+        }
+
+        const bookmarks = await TubeMarkStorage.getBookmarks();
+        if (bookmarks.length === 0) {
+          showToast('No bookmarks to export.', true);
+          return;
+        }
+
+        // Export data safely as clean formatted JSON blob download
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bookmarks, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "tubemark-bookmarks.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+
+        showToast('✓ Bookmarks exported');
+      } catch (err) {
+        console.error("[TubeMark] Export failed:", err);
+        showToast('Export failed. Please try again.', true);
+      }
+    });
+  }
+
+  // Import Bookmarks action (trigger native file selector)
+  if (importBookmarksTriggerBtn && importBookmarksFile) {
+    importBookmarksTriggerBtn.addEventListener('click', () => {
+      importBookmarksFile.click();
+    });
+  }
+
+  // Import Bookmarks action (file selected handler)
+  if (importBookmarksFile) {
+    importBookmarksFile.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const content = e.target.result;
+
+          // 1. Validate that the file is valid JSON
+          let importedData;
+          try {
+            importedData = JSON.parse(content);
+          } catch (jsonErr) {
+            console.error("[TubeMark] Import JSON parse error:", jsonErr);
+            showToast('Import failed. Please select a valid TubeMark bookmark file.', true);
+            importBookmarksFile.value = ''; // Reset input
+            return;
+          }
+
+          // 2. Validate that it is an array or contains a bookmarks array
+          let bookmarksArray = null;
+          if (Array.isArray(importedData)) {
+            bookmarksArray = importedData;
+          } else if (importedData && Array.isArray(importedData.bookmarks)) {
+            bookmarksArray = importedData.bookmarks;
+          }
+
+          if (!bookmarksArray) {
+            showToast('Import failed. Please select a valid TubeMark bookmark file.', true);
+            importBookmarksFile.value = '';
+            return;
+          }
+
+          // 3. Call storage layer to import/merge safely
+          if (typeof TubeMarkStorage !== 'undefined' && typeof TubeMarkStorage.importBookmarks === 'function') {
+            await TubeMarkStorage.importBookmarks(bookmarksArray);
+            showToast('✓ Bookmarks imported');
+
+            // Refresh counts inside settings view immediately
+            await updateSettingsCounts();
+          } else {
+            showToast('Storage module not loaded.', true);
+          }
+        } catch (err) {
+          console.error("[TubeMark] Import failed:", err);
+          showToast('Import failed. Please try again.', true);
+        } finally {
+          importBookmarksFile.value = ''; // Reset file input
+        }
+      };
+
+      reader.onerror = (err) => {
+        console.error("[TubeMark] File reader error:", err);
+        showToast('Import failed. Please try again.', true);
+        importBookmarksFile.value = '';
+      };
+
+      reader.readAsText(file);
+    });
+  }
+
+  // Clear All Bookmarks trigger
+  if (clearAllBookmarksBtn && clearConfirmBox) {
+    clearAllBookmarksBtn.addEventListener('click', () => {
+      clearConfirmBox.classList.remove('hidden');
+    });
+  }
+
+  // Clear All Bookmarks Cancel
+  if (clearCancelBtn && clearConfirmBox) {
+    clearCancelBtn.addEventListener('click', () => {
+      clearConfirmBox.classList.add('hidden');
+    });
+  }
+
+  // Clear All Bookmarks Confirm Delete Action
+  if (clearConfirmBtn && clearConfirmBox) {
+    clearConfirmBtn.addEventListener('click', async () => {
+      try {
+        if (typeof TubeMarkStorage !== 'undefined' && typeof TubeMarkStorage.clearBookmarks === 'function') {
+          await TubeMarkStorage.clearBookmarks();
+          showToast('✓ All bookmarks cleared');
+
+          clearConfirmBox.classList.add('hidden');
+          await updateSettingsCounts();
+        } else {
+          showToast('Storage module not loaded.', true);
+        }
+      } catch (err) {
+        console.error("[TubeMark] Clear all failed:", err);
+        showToast('Unable to clear bookmarks. Please try again.', true);
+      }
     });
   }
 
@@ -134,7 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Updates the visual bookmark counter and renders bookmark cards (Phase 6)
+  // Updates the visual bookmark counter and renders bookmark cards (Phase 6, 10, 11)
   async function updateSavedBookmarksListState() {
     if (!listContainer) return;
 
@@ -334,6 +556,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           actionGroupDiv.className = 'bookmark-actions';
           actionGroupDiv.style.display = 'flex';
           actionGroupDiv.style.gap = '8px';
+          actionGroupDiv.style.flexWrap = 'wrap';
 
           const continueBtn = document.createElement('button');
           continueBtn.className = 'continue-watching-btn';
@@ -498,7 +721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           let confirmBoxDiv = null;
           let editContainerDiv = null;
 
-          // Wire up Edit Button trigger
+          // Wire up Edit Button trigger (Phase 11)
           editBtn.addEventListener('click', () => {
             if (editContainerDiv) return;
             if (confirmBoxDiv) return;
