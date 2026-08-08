@@ -1,4 +1,4 @@
-// TubeMark Popup Script - Phase 2 YouTube Video Detection & Popup UI State Handling
+// TubeMark Popup Script - Phase 3 Playback Timestamp Detection & Popup UI State Handling
 
 document.addEventListener('DOMContentLoaded', async () => {
   const saveBtn = document.getElementById('save-bookmark-btn');
@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', async () => {
    * 'loading', 'detected', 'not-detected', 'error'
    */
   function setUIState(state, data = {}) {
-    // We clean or update classes in current-video-section to style individual states properly
     if (!currentVideoSection) return;
 
     // Reset layout
@@ -84,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Update the DOM card elements with real details
       const titleElem = card.querySelector('.video-title');
       const channelElem = card.querySelector('.channel-name');
+      const timestampElem = card.querySelector('.timestamp');
       const thumbnailSvg = card.querySelector('.thumbnail-svg');
       const thumbnailPlaceholder = card.querySelector('.thumbnail-placeholder');
 
@@ -93,6 +93,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (channelElem) {
         channelElem.textContent = data.channel || 'Unknown Channel';
+      }
+
+      // Display formatted playback time and duration (Phase 3)
+      if (timestampElem) {
+        const formattedCurrent = typeof TubeMarkTime !== 'undefined'
+          ? TubeMarkTime.formatTime(data.currentTime)
+          : '--:--';
+        const formattedDuration = typeof TubeMarkTime !== 'undefined'
+          ? TubeMarkTime.formatTime(data.duration)
+          : '--:--';
+
+        timestampElem.textContent = `⏱ ${formattedCurrent} / ${formattedDuration}`;
+        timestampElem.setAttribute('aria-label', `Playback progress: ${formattedCurrent} of ${formattedDuration}`);
       }
 
       // Replace or insert an actual image instead of just the SVG
@@ -112,6 +125,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Hide the dummy SVG
         if (thumbnailSvg) {
           thumbnailSvg.style.display = 'none';
+        }
+
+        // Hide the demo badge since we are showing a real video
+        const demoBadge = thumbnailPlaceholder.querySelector('.demo-badge');
+        if (demoBadge) {
+          demoBadge.style.display = 'none';
         }
       }
     }
@@ -149,7 +168,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Attempt to communicate with the content script
     try {
-      // Use short promise with a timeout to handle un-injected/loading tabs gracefully
       const response = await new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
           reject(new Error('Content script communication timed out.'));
@@ -157,7 +175,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         chrome.tabs.sendMessage(activeTab.id, { action: 'getVideoInfo' }, (res) => {
           clearTimeout(timeoutId);
-          // Handle chrome runtime lastError (e.g. content script not ready or doesn't exist)
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
