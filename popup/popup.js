@@ -65,9 +65,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Updates the visual bookmark counter and empty state
-  async function updateSavedBookmarksListState() {
+  const listContainer = document.querySelector('.bookmarks-list-container');
+
+  // Human-readable date formatting helper (Phase 6)
+  function formatHumanDate(timestamp) {
+    if (!timestamp || isNaN(timestamp)) return '';
     try {
+      const now = new Date();
+      const savedDate = new Date(timestamp);
+
+      // Check if same day, same month, same year
+      const isToday = now.getDate() === savedDate.getDate() &&
+                      now.getMonth() === savedDate.getMonth() &&
+                      now.getFullYear() === savedDate.getFullYear();
+
+      if (isToday) {
+        return 'Saved today';
+      }
+
+      // Check if yesterday
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = yesterday.getDate() === savedDate.getDate() &&
+                          yesterday.getMonth() === savedDate.getMonth() &&
+                          yesterday.getFullYear() === savedDate.getFullYear();
+
+      if (isYesterday) {
+        return 'Saved yesterday';
+      }
+
+      // Format as "Saved MMM D" (e.g. Saved Aug 5)
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `Saved ${months[savedDate.getMonth()]} ${savedDate.getDate()}`;
+    } catch (err) {
+      return '';
+    }
+  }
+
+  // Updates the visual bookmark counter and renders bookmark cards (Phase 6)
+  async function updateSavedBookmarksListState() {
+    if (!listContainer) return;
+
+    try {
+      // Step 14: show visual "Loading bookmarks..." during storage request
+      listContainer.innerHTML = `
+        <div class="state-container loading-state" style="width: 100%;">
+          <p class="state-text">Loading bookmarks...</p>
+        </div>
+      `;
+
       if (typeof TubeMarkStorage !== 'undefined') {
         const bookmarks = await TubeMarkStorage.getBookmarks();
         const count = bookmarks.length;
@@ -77,25 +123,175 @@ document.addEventListener('DOMContentLoaded', async () => {
           savedBookmarksHeading.textContent = `Saved Bookmarks (${count})`;
         }
 
-        // Section 15: basic count or "Your bookmarks are saved."
-        if (emptyStateContainer) {
-          if (count > 0) {
-            emptyStateContainer.innerHTML = `
-              <div class="empty-icon" aria-hidden="true">🔖</div>
-              <h3 class="empty-title">Your bookmarks are saved</h3>
-              <p class="empty-text">You have saved ${count} video bookmark${count > 1 ? 's' : ''}. Full list display is coming soon!</p>
-            `;
-          } else {
-            emptyStateContainer.innerHTML = `
+        if (count === 0) {
+          // Step 15: Empty State
+          listContainer.innerHTML = `
+            <div class="empty-state">
               <div class="empty-icon" aria-hidden="true">📭</div>
               <h3 class="empty-title">No bookmarks yet</h3>
-              <p class="empty-text">Your saved YouTube videos will appear here.</p>
-            `;
-          }
+              <p class="empty-text">Save a YouTube video to see it here.</p>
+            </div>
+          `;
+          return;
         }
+
+        // Step 12: Sort descending by bookmark.savedAt on a cloned array (newest first)
+        const sortedBookmarks = [...bookmarks].sort((a, b) => {
+          const dateA = a.savedAt || 0;
+          const dateB = b.savedAt || 0;
+          return dateB - dateA;
+        });
+
+        // Clear loading state
+        listContainer.innerHTML = '';
+
+        // Step 3: Dynamically generate clean card nodes for every bookmark securely (textContent)
+        sortedBookmarks.forEach((bookmark) => {
+          const cardDiv = document.createElement('div');
+          cardDiv.className = 'bookmark-card';
+
+          // Thumbnail component
+          const mainRowDiv = document.createElement('div');
+          mainRowDiv.className = 'bookmark-main-row';
+
+          const thumbDiv = document.createElement('div');
+          thumbDiv.className = 'thumbnail-placeholder';
+
+          // Create real image (Phase 6 placeholder fallback)
+          const imgElem = document.createElement('img');
+          imgElem.className = 'real-thumbnail';
+          imgElem.style.width = '100%';
+          imgElem.style.height = '100%';
+          imgElem.style.objectFit = 'cover';
+          imgElem.src = bookmark.thumbnail || 'https://img.youtube.com/vi/placeholder/hqdefault.jpg';
+          imgElem.alt = bookmark.title ? `${bookmark.title} Thumbnail` : 'Video Thumbnail';
+          thumbDiv.appendChild(imgElem);
+
+          // Details component (Title, Channel, Playback position / duration)
+          const detailsDiv = document.createElement('div');
+          detailsDiv.className = 'bookmark-details';
+
+          const titleH3 = document.createElement('h3');
+          titleH3.className = 'bookmark-title';
+          titleH3.textContent = bookmark.title || 'Untitled video';
+          titleH3.title = bookmark.title || 'Untitled video';
+
+          const channelP = document.createElement('p');
+          channelP.className = 'bookmark-channel';
+          channelP.textContent = bookmark.channel || 'Unknown channel';
+
+          // Playback progress duration timestamps
+          const timeMetaDiv = document.createElement('div');
+          timeMetaDiv.className = 'video-meta';
+
+          const timestampSpan = document.createElement('span');
+          timestampSpan.className = 'timestamp';
+
+          const formattedCurrent = typeof TubeMarkTime !== 'undefined'
+            ? TubeMarkTime.formatTime(bookmark.currentTime)
+            : '--:--';
+          const formattedDuration = typeof TubeMarkTime !== 'undefined'
+            ? TubeMarkTime.formatTime(bookmark.duration)
+            : '--:--';
+          timestampSpan.textContent = `⏱ ${formattedCurrent} / ${formattedDuration}`;
+          timeMetaDiv.appendChild(timestampSpan);
+
+          detailsDiv.appendChild(titleH3);
+          detailsDiv.appendChild(channelP);
+          detailsDiv.appendChild(timeMetaDiv);
+
+          mainRowDiv.appendChild(thumbDiv);
+          mainRowDiv.appendChild(detailsDiv);
+          cardDiv.appendChild(mainRowDiv);
+
+          // Step 8: Visual progress bar (calculated from currentTime / duration)
+          const durationVal = Number(bookmark.duration);
+          const currentVal = Number(bookmark.currentTime);
+
+          if (durationVal && durationVal > 0 && !isNaN(currentVal)) {
+            const pct = Math.min(100, Math.max(0, Math.round((currentVal / durationVal) * 100)));
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'bookmark-progress-container';
+
+            const progressTrack = document.createElement('div');
+            progressTrack.className = 'progress-track';
+
+            const progressFill = document.createElement('div');
+            progressFill.className = 'progress-fill';
+            progressFill.style.width = `${pct}%`;
+            progressTrack.appendChild(progressFill);
+
+            const progressPercent = document.createElement('span');
+            progressPercent.className = 'progress-percent';
+            progressPercent.textContent = `${pct}%`;
+
+            progressContainer.appendChild(progressTrack);
+            progressContainer.appendChild(progressPercent);
+            cardDiv.appendChild(progressContainer);
+          }
+
+          // Step 9: Notes Display (Optional check)
+          if (bookmark.note && bookmark.note.trim() !== '') {
+            const noteBox = document.createElement('div');
+            noteBox.className = 'bookmark-note-box';
+
+            const noteTitle = document.createElement('div');
+            noteTitle.className = 'bookmark-note-title';
+            noteTitle.textContent = 'Note';
+
+            const noteContent = document.createElement('span');
+            noteContent.textContent = bookmark.note;
+
+            noteBox.appendChild(noteTitle);
+            noteBox.appendChild(noteContent);
+            cardDiv.appendChild(noteBox);
+          }
+
+          // Step 10 & 11: Footer display row (relative date and Open Video trigger)
+          const footerRowDiv = document.createElement('div');
+          footerRowDiv.className = 'bookmark-footer-row';
+
+          const dateSpan = document.createElement('span');
+          dateSpan.className = 'bookmark-saved-date';
+          dateSpan.textContent = formatHumanDate(bookmark.savedAt);
+
+          const openBtn = document.createElement('button');
+          openBtn.className = 'open-video-btn';
+          openBtn.textContent = 'Open Video';
+          openBtn.title = 'Open video URL in a new browser tab';
+
+          // Action listener to safely launch target link in new tab without seeking
+          openBtn.addEventListener('click', () => {
+            if (bookmark.url) {
+              window.open(bookmark.url, '_blank');
+            }
+          });
+
+          footerRowDiv.appendChild(dateSpan);
+          footerRowDiv.appendChild(openBtn);
+          cardDiv.appendChild(footerRowDiv);
+
+          listContainer.appendChild(cardDiv);
+        });
+
+      } else {
+        // Step 16: Module loading error fallback
+        listContainer.innerHTML = `
+          <div class="state-container error-state" style="width: 100%;">
+            <p class="state-title error-text">Unable to load bookmarks.</p>
+            <p class="state-message">Please try again.</p>
+          </div>
+        `;
       }
     } catch (e) {
-      console.error('Error updating saved bookmarks state:', e);
+      console.error("[TubeMark]", e);
+      // Step 16: Exception display rendering safely
+      listContainer.innerHTML = `
+        <div class="state-container error-state" style="width: 100%;">
+          <p class="state-title error-text">Unable to load bookmarks.</p>
+          <p class="state-message">Please try again.</p>
+        </div>
+      `;
     }
   }
 
