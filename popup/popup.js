@@ -7,8 +7,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savedBookmarksHeading = document.getElementById('saved-bookmarks-heading');
   const emptyStateContainer = document.querySelector('.saved-bookmarks-section .empty-state');
 
+  // Search input & clear elements
+  const searchContainer = document.getElementById('search-container');
+  const searchInput = document.getElementById('search-input');
+  const searchClearBtn = document.getElementById('search-clear-btn');
+
   let toastTimeout = null;
   let currentDetectedData = null; // Caches the latest video metadata in the popup
+  let currentSearchQuery = ''; // Active normalized search query
+
+  // Wire up search event listeners
+  if (searchInput && searchClearBtn) {
+    searchInput.addEventListener('input', () => {
+      const originalValue = searchInput.value;
+      const normalizedQuery = originalValue.trim().toLowerCase();
+      currentSearchQuery = normalizedQuery;
+
+      if (originalValue.length > 0) {
+        searchClearBtn.classList.remove('hidden');
+      } else {
+        searchClearBtn.classList.add('hidden');
+      }
+
+      // Refresh the saved bookmarks list dynamically using filtered results
+      updateSavedBookmarksListState();
+    });
+
+    searchClearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      currentSearchQuery = '';
+      searchClearBtn.classList.add('hidden');
+      searchInput.focus();
+      updateSavedBookmarksListState();
+    });
+  }
 
   // Utility to safely retrieve the active tab
   async function getActiveTab() {
@@ -118,12 +150,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const bookmarks = await TubeMarkStorage.getBookmarks();
         const count = bookmarks.length;
 
-        // Update Section title with count: e.g. "Saved Bookmarks (3)"
-        if (savedBookmarksHeading) {
-          savedBookmarksHeading.textContent = `Saved Bookmarks (${count})`;
+        // Show/hide search bar container based on whether there are saved bookmarks
+        if (searchContainer) {
+          if (count > 0) {
+            searchContainer.classList.remove('hidden');
+          } else {
+            searchContainer.classList.add('hidden');
+            currentSearchQuery = '';
+            if (searchInput) searchInput.value = '';
+            if (searchClearBtn) searchClearBtn.classList.add('hidden');
+          }
         }
 
         if (count === 0) {
+          if (savedBookmarksHeading) {
+            savedBookmarksHeading.textContent = `Saved Bookmarks (0)`;
+          }
           // Step 15: Empty State
           listContainer.innerHTML = `
             <div class="empty-state">
@@ -142,11 +184,44 @@ document.addEventListener('DOMContentLoaded', async () => {
           return dateB - dateA;
         });
 
+        // Filter sorted bookmarks based on current normalized query
+        const filteredBookmarks = sortedBookmarks.filter(bookmark => {
+          if (!currentSearchQuery) return true;
+
+          const title = (bookmark.title || '').toLowerCase();
+          const channel = (bookmark.channel || '').toLowerCase();
+          const note = (bookmark.note || '').toLowerCase();
+          const videoId = (bookmark.videoId || '').toLowerCase();
+          const url = (bookmark.url || '').toLowerCase();
+
+          return title.includes(currentSearchQuery) ||
+                 channel.includes(currentSearchQuery) ||
+                 note.includes(currentSearchQuery) ||
+                 videoId.includes(currentSearchQuery) ||
+                 url.includes(currentSearchQuery);
+        });
+
+        // Update Section title with count of matching bookmarks
+        if (savedBookmarksHeading) {
+          savedBookmarksHeading.textContent = `Saved Bookmarks (${filteredBookmarks.length})`;
+        }
+
+        if (filteredBookmarks.length === 0) {
+          listContainer.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon" aria-hidden="true">🔍</div>
+              <h3 class="empty-title">No bookmarks found</h3>
+              <p class="empty-text">Try a different search.</p>
+            </div>
+          `;
+          return;
+        }
+
         // Clear loading state
         listContainer.innerHTML = '';
 
         // Step 3: Dynamically generate clean card nodes for every bookmark securely (textContent)
-        sortedBookmarks.forEach((bookmark) => {
+        filteredBookmarks.forEach((bookmark) => {
           const cardDiv = document.createElement('div');
           cardDiv.className = 'bookmark-card';
 
