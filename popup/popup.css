@@ -361,6 +361,72 @@ body {
   pointer-events: none;
 }
 
+/* Search Container & Input Styling */
+.search-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  gap: 8px;
+  transition: border-color 0.2s ease-in-out;
+  margin-bottom: 4px;
+}
+
+.search-container:focus-within {
+  border-color: var(--accent-color);
+}
+
+.search-icon {
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 12px;
+  width: 100%;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-disabled);
+}
+
+.search-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: 50%;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.search-clear-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.search-clear-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+}
+
+.search-container.hidden,
+.search-clear-btn.hidden {
+  display: none !important;
+}
+
 /* Saved Bookmarks List & Scroll Container (Phase 6 Popup Scrolling) */
 .bookmarks-list-container {
   display: flex;
