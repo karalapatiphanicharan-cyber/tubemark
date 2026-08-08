@@ -19,6 +19,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     return activeTab;
   }
 
+  // Utility to ping content script
+  async function pingContentScript(tabId) {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('PING timed out.'));
+      }, 1000);
+
+      try {
+        chrome.tabs.sendMessage(tabId, { action: 'ping' }, (res) => {
+          clearTimeout(timeoutId);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(res);
+          }
+        });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        reject(err);
+      }
+    });
+  }
+
   // Utility to query freshest info from content script
   async function queryFreshestVideoInfo(tabId) {
     return new Promise((resolve, reject) => {
@@ -164,23 +187,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize Save Button click listener (Phase 5 save bookmark with optional note flow)
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
+      console.log("[TubeMark] Save started");
       try {
         const activeTab = await getActiveTab();
+        console.log("[TubeMark] Active tab:", activeTab);
         if (!activeTab || !currentDetectedData) {
+          console.error("[TubeMark] Save failed: No active YouTube video found.");
           showToast('No active YouTube video found.', true);
           return;
         }
 
-        // Section 7: Query freshest video position immediately before saving
+        console.log("[TubeMark] Checking YouTube page");
+        const isVideo = typeof TubeMarkYouTubeUtils !== 'undefined'
+          ? TubeMarkYouTubeUtils.isYouTubeVideoPage(activeTab.url)
+          : false;
+        if (!isVideo) {
+          console.error("[TubeMark] Save failed: Not a valid YouTube video page.");
+          showToast('No active YouTube video found.', true);
+          return;
+        }
+
+        // Verify active connection ping before querying freshest position
+        console.log("[TubeMark] Sending Ping check...");
+        try {
+          await pingContentScript(activeTab.id);
+        } catch (pingErr) {
+          console.error("[TubeMark] Connection lost. Redirecting to reconnect state.");
+          setUIState('reconnect');
+          return;
+        }
+
+        console.log("[TubeMark] Requesting video information");
         let freshestData = currentDetectedData;
         try {
           const res = await queryFreshestVideoInfo(activeTab.id);
           if (res && res.success && res.data) {
+            console.log("[TubeMark] Video information received:", res.data);
             freshestData = res.data;
           }
         } catch (freshestErr) {
-          console.warn('Could not query freshest playback position, using cached metadata:', freshestErr);
+          console.warn('[TubeMark] Could not query freshest playback position, using cached metadata:', freshestErr);
         }
+
+        // Fallback for missing/invalid timestamps (Bugfix requirements)
+        if (freshestData.currentTime === undefined || freshestData.currentTime === null || isNaN(freshestData.currentTime)) {
+          console.error("[TubeMark] Save failed: Current playback position is currently unavailable.");
+          setUIState('playback-failure');
+          return;
+        }
+        console.log("[TubeMark] Current time:", freshestData.currentTime);
 
         // Whitespace and length handling for optional note (Phase 5)
         let noteValue = '';
@@ -204,7 +259,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         if (typeof TubeMarkStorage !== 'undefined') {
+          const existingBookmarks = await TubeMarkStorage.getBookmarks();
+          console.log("[TubeMark] Existing bookmarks:", existingBookmarks);
+          console.log("[TubeMark] Bookmark object to save:", bookmarkObject);
+
+          console.log("[TubeMark] Writing to chrome.storage.local");
           await TubeMarkStorage.saveBookmark(bookmarkObject);
+          console.log("[TubeMark] Storage write completed");
+
+          // Post-write confirmation step using direct chrome.storage.local.get logic
+          const verifiedBookmarks = await TubeMarkStorage.getBookmarks();
+          const verifiedItem = verifiedBookmarks.find(b => b.videoId === bookmarkObject.videoId);
+          if (!verifiedItem) {
+            throw new Error("Local bookmark missing after read-back verify.");
+          }
+          console.log("[TubeMark] Storage verification successful:", verifiedBookmarks);
 
           // Show visual success states
           showToast('✓ Bookmark saved');
@@ -212,8 +281,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           await updateSavedBookmarksListState();
 
           // Temporarily show "✓ Saved" on button for feedback
-          const originalHTML = saveBtn.innerHTML;
-          const originalClass = saveBtn.className;
           saveBtn.innerHTML = '<span>✓</span> Saved!';
           saveBtn.className = 'save-btn save-success';
 
@@ -221,13 +288,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateSaveButtonVisualState(freshestData.videoId);
           }, 1500);
 
+          console.log("[TubeMark] Save completed");
+
         } else {
+          console.error("[TubeMark] Storage module not loaded.");
           showToast('Storage module not loaded.', true);
         }
 
       } catch (err) {
-        console.error('Failed to save bookmark:', err);
-        showToast('Unable to save bookmark. Please try again.', true);
+        console.error("[TubeMark] Save failed:", err);
+        setUIState('storage-failure');
       }
     });
   }
@@ -312,6 +382,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
       currentVideoSection.insertBefore(errorDiv, card);
     }
+    else if (state === 'playback-failure') {
+      if (card) card.style.display = 'none';
+      if (saveButton) saveButton.style.display = 'none';
+
+      const playbackFailureDiv = document.createElement('div');
+      playbackFailureDiv.className = 'state-container playback-failure-state';
+      playbackFailureDiv.innerHTML = `
+        <div class="empty-state-small">
+          <p class="state-title error-text">Playback position is currently unavailable</p>
+          <p class="state-message">Please play the video briefly and try again.</p>
+        </div>
+      `;
+      currentVideoSection.insertBefore(playbackFailureDiv, card);
+    }
+    else if (state === 'storage-failure') {
+      if (card) card.style.display = 'none';
+      if (saveButton) saveButton.style.display = 'none';
+
+      const storageFailureDiv = document.createElement('div');
+      storageFailureDiv.className = 'state-container storage-failure-state';
+      storageFailureDiv.innerHTML = `
+        <div class="empty-state-small">
+          <p class="state-title error-text">Unable to save bookmark</p>
+          <p class="state-message">Please try again.</p>
+        </div>
+      `;
+      currentVideoSection.insertBefore(storageFailureDiv, card);
+    }
     else if (state === 'detected') {
       if (card) card.style.display = 'flex';
       if (saveButton) saveButton.style.display = 'flex';
@@ -392,19 +490,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // Ping content script to verify active connection before messaging
+    try {
+      await pingContentScript(activeTab.id);
+    } catch (pingErr) {
+      console.error("[TubeMark] Connection Ping failed:", pingErr);
+      setUIState('reconnect');
+      return;
+    }
+
     // Query content script
     try {
       const response = await queryFreshestVideoInfo(activeTab.id);
 
       if (response && response.success && response.data) {
-        currentDetectedData = response.data;
+        const data = response.data;
+
+        // Strictly verify video information is valid (Phase 5/Bugfix requirements)
+        if (!data.videoId) {
+          console.error("[TubeMark] Video detection failed: videoId missing.");
+          setUIState('error');
+          return;
+        }
+
+        currentDetectedData = data;
         setUIState('detected', currentDetectedData);
         await updateSaveButtonVisualState(currentDetectedData.videoId);
       } else {
+        console.error("[TubeMark] Video metadata parsing returned success=false.");
         setUIState('error');
       }
     } catch (msgError) {
-      console.warn('Messaging failure (might need reload):', msgError);
+      console.error('[TubeMark] Messaging failure:', msgError);
       const errMsg = msgError.message || '';
       if (
         errMsg.includes('Could not establish connection') ||
@@ -418,7 +535,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
   } catch (error) {
-    console.error('Fatal initialization error:', error);
+    console.error('[TubeMark] Fatal initialization error:', error);
     setUIState('error');
   }
 });
