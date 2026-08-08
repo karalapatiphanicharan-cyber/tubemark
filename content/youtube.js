@@ -80,8 +80,18 @@
     // 3. Extract Video ID from current URL
     let videoId = null;
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      videoId = urlParams.get('v');
+      const urlObj = new URL(window.location.href);
+      if (urlObj.hostname.includes('youtube.com')) {
+        if (urlObj.pathname === '/watch') {
+          videoId = urlObj.searchParams.get('v');
+        } else if (urlObj.pathname.startsWith('/embed/')) {
+          videoId = urlObj.pathname.split('/')[2];
+        } else if (urlObj.pathname.startsWith('/shorts/')) {
+          videoId = urlObj.pathname.split('/')[2];
+        }
+      } else if (urlObj.hostname.includes('youtu.be')) {
+        videoId = urlObj.pathname.substring(1).split('?')[0];
+      }
     } catch (e) {
       // ignore
     }
