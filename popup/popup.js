@@ -473,6 +473,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           });
 
+          // Phase 11 Edit/Add Note Button
+          const editBtn = document.createElement('button');
+          editBtn.className = 'edit-note-btn';
+          editBtn.textContent = (bookmark.note && bookmark.note.trim() !== '') ? 'Edit Note' : 'Add Note';
+          editBtn.title = (bookmark.note && bookmark.note.trim() !== '') ? 'Edit this bookmark\'s note' : 'Add a note to this bookmark';
+
           // Phase 7 Delete Button
           const deleteBtn = document.createElement('button');
           deleteBtn.className = 'delete-bookmark-btn';
@@ -481,6 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           actionGroupDiv.appendChild(continueBtn);
           actionGroupDiv.appendChild(openBtn);
+          actionGroupDiv.appendChild(editBtn);
           actionGroupDiv.appendChild(deleteBtn);
 
           footerRowDiv.appendChild(dateSpan);
@@ -489,10 +496,140 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           // Inline Confirmation Box (initially not attached)
           let confirmBoxDiv = null;
+          let editContainerDiv = null;
+
+          // Wire up Edit Button trigger
+          editBtn.addEventListener('click', () => {
+            if (editContainerDiv) return;
+            if (confirmBoxDiv) return;
+
+            // Hide normal footer row, progress container, and existing note box for editing mode
+            footerRowDiv.style.display = 'none';
+            const progressContainer = cardDiv.querySelector('.bookmark-progress-container');
+            if (progressContainer) progressContainer.style.display = 'none';
+            const existingNoteBox = cardDiv.querySelector('.bookmark-note-box');
+            if (existingNoteBox) existingNoteBox.style.display = 'none';
+
+            // Create inline edit form container
+            editContainerDiv = document.createElement('div');
+            editContainerDiv.className = 'bookmark-edit-container';
+
+            const editHeader = document.createElement('div');
+            editHeader.className = 'bookmark-edit-header';
+
+            const editLabel = document.createElement('span');
+            editLabel.className = 'bookmark-edit-label';
+            editLabel.textContent = 'NOTE';
+
+            const editCharCounter = document.createElement('span');
+            editCharCounter.className = 'bookmark-edit-char-counter';
+            const initialLen = bookmark.note ? bookmark.note.length : 0;
+            editCharCounter.textContent = `${initialLen} / 500`;
+
+            editHeader.appendChild(editLabel);
+            editHeader.appendChild(editCharCounter);
+            editContainerDiv.appendChild(editHeader);
+
+            const editTextarea = document.createElement('textarea');
+            editTextarea.className = 'bookmark-edit-textarea';
+            editTextarea.placeholder = 'Write your note...';
+            editTextarea.value = bookmark.note || '';
+            editTextarea.rows = 3;
+            editTextarea.setAttribute('aria-label', 'Edit bookmark note');
+
+            function updateEditCharCounter() {
+              const len = editTextarea.value.length;
+              editCharCounter.textContent = `${len} / 500`;
+              if (len >= 500) {
+                editCharCounter.classList.add('limit-reached');
+              } else {
+                editCharCounter.classList.remove('limit-reached');
+              }
+            }
+
+            editTextarea.addEventListener('input', () => {
+              if (editTextarea.value.length > 500) {
+                editTextarea.value = editTextarea.value.slice(0, 500);
+              }
+              updateEditCharCounter();
+            });
+
+            editTextarea.addEventListener('paste', () => {
+              setTimeout(() => {
+                if (editTextarea.value.length > 500) {
+                  editTextarea.value = editTextarea.value.slice(0, 500);
+                }
+                updateEditCharCounter();
+              }, 0);
+            });
+
+            editContainerDiv.appendChild(editTextarea);
+
+            const editActions = document.createElement('div');
+            editActions.className = 'bookmark-edit-actions';
+
+            const cancelEditBtn = document.createElement('button');
+            cancelEditBtn.className = 'bookmark-edit-cancel-btn';
+            cancelEditBtn.textContent = 'Cancel';
+            cancelEditBtn.type = 'button';
+
+            const saveEditBtn = document.createElement('button');
+            saveEditBtn.className = 'bookmark-edit-save-btn';
+            saveEditBtn.textContent = 'Save';
+            saveEditBtn.type = 'button';
+
+            editActions.appendChild(cancelEditBtn);
+            editActions.appendChild(saveEditBtn);
+            editContainerDiv.appendChild(editActions);
+
+            cardDiv.appendChild(editContainerDiv);
+
+            // Set focus and cursor position at the end of the input
+            editTextarea.focus();
+            editTextarea.setSelectionRange(editTextarea.value.length, editTextarea.value.length);
+
+            // Wire up Cancel button inside Edit Form
+            cancelEditBtn.addEventListener('click', () => {
+              editContainerDiv.remove();
+              editContainerDiv = null;
+
+              footerRowDiv.style.display = 'flex';
+              if (progressContainer) progressContainer.style.display = 'flex';
+              if (existingNoteBox) existingNoteBox.style.display = 'block';
+            });
+
+            // Wire up Save button inside Edit Form
+            saveEditBtn.addEventListener('click', async () => {
+              const updatedNote = editTextarea.value.trim();
+
+              try {
+                if (typeof TubeMarkStorage !== 'undefined' && typeof TubeMarkStorage.updateBookmarkNote === 'function') {
+                  const success = await TubeMarkStorage.updateBookmarkNote(bookmark.id, updatedNote);
+                  if (success) {
+                    showToast('✓ Note updated');
+
+                    editContainerDiv.remove();
+                    editContainerDiv = null;
+
+                    await updateSavedBookmarksListState();
+                  } else {
+                    console.error("[TubeMark] Note update failed: storage layer returned false.");
+                    showToast('Unable to update note. Please try again.', true);
+                  }
+                } else {
+                  showToast('Storage module not loaded.', true);
+                }
+              } catch (err) {
+                console.error("[TubeMark] Note update failed:", err);
+                showToast('Unable to update note. Please try again.', true);
+              }
+            });
+          });
 
           deleteBtn.addEventListener('click', () => {
-            // If already confirming, do nothing
+            // If already confirming or editing, do nothing
             if (confirmBoxDiv) return;
+            if (editContainerDiv) return;
 
             // Hide normal footer row and progress container temporarily for clean aesthetic
             footerRowDiv.style.display = 'none';
