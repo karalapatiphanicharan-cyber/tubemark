@@ -121,12 +121,20 @@ const TubeMarkStorage = {
   deleteBookmark: async (id) => {
     if (!id) return false;
 
+    console.log("[TubeMark] Delete started");
+    console.log("[TubeMark] Bookmark ID:", id);
+
     const bookmarks = await TubeMarkStorage.getBookmarks();
+    console.log("[TubeMark] Existing bookmark count:", bookmarks.length);
+
     const filtered = bookmarks.filter(b => b.id !== id);
 
     if (bookmarks.length === filtered.length) {
+      console.warn("[TubeMark] Delete failed: Bookmark ID not found in storage.");
       return false; // Nothing was deleted
     }
+
+    console.log("[TubeMark] Removing bookmark...");
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       await new Promise((resolve, reject) => {
@@ -138,8 +146,21 @@ const TubeMarkStorage = {
           }
         });
       });
+
+      console.log("[TubeMark] Storage update completed");
+
+      // Post-delete verification (verify that the bookmark is actually removed)
+      const verifyBookmarks = await TubeMarkStorage.getBookmarks();
+      const verifiedDeleted = !verifyBookmarks.some(b => b.id === id);
+      if (!verifiedDeleted) {
+        throw new Error("Post-delete storage verification failed: Deleted bookmark still exists in local storage.");
+      }
+      console.log("[TubeMark] Storage verification successful. Remaining bookmarks:", verifyBookmarks.length);
+    } else {
+      console.warn('chrome.storage.local not found. Cannot persist changes.');
     }
 
+    console.log("[TubeMark] Delete completed");
     return true;
   },
 

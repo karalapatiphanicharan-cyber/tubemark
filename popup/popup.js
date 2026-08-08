@@ -247,13 +247,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             cardDiv.appendChild(noteBox);
           }
 
-          // Step 10 & 11: Footer display row (relative date and Open Video trigger)
+          // Step 10 & 11: Footer display row (relative date and Open Video/Delete triggers)
           const footerRowDiv = document.createElement('div');
           footerRowDiv.className = 'bookmark-footer-row';
 
           const dateSpan = document.createElement('span');
           dateSpan.className = 'bookmark-saved-date';
           dateSpan.textContent = formatHumanDate(bookmark.savedAt);
+
+          const actionGroupDiv = document.createElement('div');
+          actionGroupDiv.className = 'bookmark-actions';
+          actionGroupDiv.style.display = 'flex';
+          actionGroupDiv.style.gap = '8px';
 
           const openBtn = document.createElement('button');
           openBtn.className = 'open-video-btn';
@@ -267,9 +272,104 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
           });
 
+          // Phase 7 Delete Button
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'delete-bookmark-btn';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.title = 'Delete this video bookmark';
+
+          actionGroupDiv.appendChild(openBtn);
+          actionGroupDiv.appendChild(deleteBtn);
+
           footerRowDiv.appendChild(dateSpan);
-          footerRowDiv.appendChild(openBtn);
+          footerRowDiv.appendChild(actionGroupDiv);
           cardDiv.appendChild(footerRowDiv);
+
+          // Inline Confirmation Box (initially not attached)
+          let confirmBoxDiv = null;
+
+          deleteBtn.addEventListener('click', () => {
+            // If already confirming, do nothing
+            if (confirmBoxDiv) return;
+
+            // Hide normal footer row and progress container temporarily for clean aesthetic
+            footerRowDiv.style.display = 'none';
+            const progressContainer = cardDiv.querySelector('.bookmark-progress-container');
+            if (progressContainer) progressContainer.style.display = 'none';
+
+            // Create inline confirmation box
+            confirmBoxDiv = document.createElement('div');
+            confirmBoxDiv.className = 'delete-confirm-box';
+
+            const confirmMsg = document.createElement('p');
+            confirmMsg.className = 'delete-confirm-msg';
+            confirmMsg.textContent = 'Delete this bookmark?';
+
+            const confirmActions = document.createElement('div');
+            confirmActions.className = 'delete-confirm-actions';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'confirm-cancel-btn';
+            cancelBtn.textContent = 'Cancel';
+
+            const confirmDeleteBtn = document.createElement('button');
+            confirmDeleteBtn.className = 'confirm-delete-btn';
+            confirmDeleteBtn.textContent = 'Delete';
+
+            // Cancel trigger
+            cancelBtn.addEventListener('click', () => {
+              confirmBoxDiv.remove();
+              confirmBoxDiv = null;
+              footerRowDiv.style.display = 'flex';
+              if (progressContainer) progressContainer.style.display = 'flex';
+            });
+
+            // Confirm Delete Trigger (call to storage layer)
+            confirmDeleteBtn.addEventListener('click', async () => {
+              try {
+                console.log("[TubeMark] Delete clicked for bookmark ID:", bookmark.id);
+                if (typeof TubeMarkStorage !== 'undefined') {
+                  const success = await TubeMarkStorage.deleteBookmark(bookmark.id);
+                  if (success) {
+                    showToast('✓ Bookmark deleted');
+
+                    // Reload bookmarks list and update active save button visual state
+                    await updateSavedBookmarksListState();
+
+                    // If the currently open video was deleted, revert Save button style back to unsaved
+                    const activeTab = await getActiveTab();
+                    if (activeTab && activeTab.url) {
+                      const activeVideoId = typeof TubeMarkYouTubeUtils !== 'undefined'
+                        ? TubeMarkYouTubeUtils.getVideoId(activeTab.url)
+                        : null;
+                      if (activeVideoId && activeVideoId === bookmark.videoId) {
+                        await updateSaveButtonVisualState(activeVideoId);
+                      }
+                    }
+                  } else {
+                    console.error("[TubeMark] Delete failed: storage function returned false.");
+                    showToast('Unable to delete bookmark. Please try again.', true);
+                    // Revert UI on failure
+                    cancelBtn.click();
+                  }
+                } else {
+                  showToast('Storage module not loaded.', true);
+                  cancelBtn.click();
+                }
+              } catch (err) {
+                console.error("[TubeMark] Delete failed:", err);
+                showToast('Unable to delete bookmark. Please try again.', true);
+                cancelBtn.click();
+              }
+            });
+
+            confirmActions.appendChild(cancelBtn);
+            confirmActions.appendChild(confirmDeleteBtn);
+            confirmBoxDiv.appendChild(confirmMsg);
+            confirmBoxDiv.appendChild(confirmActions);
+
+            cardDiv.appendChild(confirmBoxDiv);
+          });
 
           listContainer.appendChild(cardDiv);
         });
