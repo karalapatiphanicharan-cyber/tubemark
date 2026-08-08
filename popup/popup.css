@@ -233,12 +233,32 @@ body {
   letter-spacing: 0.2px;
 }
 
-.note-optional {
+.note-toggle-btn {
   font-size: 10px;
   color: var(--text-secondary);
   background-color: var(--bg-primary);
-  padding: 1px 6px;
+  border: 1px solid var(--border-color);
+  padding: 2px 8px;
   border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  font-family: var(--font-family);
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.note-toggle-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-disabled);
+}
+
+.note-toggle-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+}
+
+.note-container.collapsed .note-textarea,
+.note-container.collapsed .note-footer {
+  display: none;
 }
 
 .note-textarea {
