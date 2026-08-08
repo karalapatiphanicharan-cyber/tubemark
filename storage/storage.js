@@ -224,6 +224,94 @@ const TubeMarkStorage = {
     }
 
     return true;
+  },
+
+  /**
+   * Clears all bookmarks by setting the bookmarks array in storage to [].
+   * Does NOT touch any other key in storage.
+   * @returns {Promise<boolean>} True if successful
+   */
+  clearBookmarks: async () => {
+    const emptyBookmarks = [];
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.set({ bookmarks: emptyBookmarks }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+      console.log("[TubeMark] Storage cleared. Bookmarks is now an empty array.");
+    } else {
+      console.warn('chrome.storage.local not found. Cannot clear bookmarks.');
+    }
+    return true;
+  },
+
+  /**
+   * Imports an array of bookmarks, validating entries and merging duplicates cleanly.
+   * @param {Array} importedList
+   * @returns {Promise<Array>} The updated bookmarks array
+   */
+  importBookmarks: async (importedList) => {
+    if (!Array.isArray(importedList)) {
+      throw new Error("Invalid import: expected an array.");
+    }
+
+    const currentBookmarks = await TubeMarkStorage.getBookmarks();
+    const currentMap = new Map();
+    currentBookmarks.forEach(b => {
+      if (b.videoId) {
+        currentMap.set(b.videoId, b);
+      }
+    });
+
+    importedList.forEach(imported => {
+      if (!imported || !imported.videoId || !imported.title) {
+        // Skip invalid entries safely
+        return;
+      }
+
+      const existing = currentMap.get(imported.videoId);
+      const mergedBookmark = {
+        id: imported.id || (existing ? existing.id : TubeMarkStorage.generateUUID()),
+        videoId: imported.videoId,
+        title: imported.title || (existing ? existing.title : 'Untitled Title'),
+        channel: imported.channel || (existing ? existing.channel : 'Unknown Channel'),
+        url: imported.url || (existing ? existing.url : ''),
+        thumbnail: imported.thumbnail || (existing ? existing.thumbnail : ''),
+        currentTime: typeof imported.currentTime === 'number' ? imported.currentTime : (existing ? existing.currentTime : 0),
+        duration: typeof imported.duration === 'number' ? imported.duration : (existing ? existing.duration : null),
+        note: typeof imported.note === 'string' ? imported.note : (existing ? existing.note || '' : ''),
+        savedAt: typeof imported.savedAt === 'number' ? imported.savedAt : (existing ? existing.savedAt : Date.now())
+      };
+
+      currentMap.set(imported.videoId, mergedBookmark);
+    });
+
+    const updatedBookmarks = Array.from(currentMap.values());
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.set({ bookmarks: updatedBookmarks }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Post-write verification
+      const verify = await TubeMarkStorage.getBookmarks();
+      console.log("[TubeMark] Import complete. Stored bookmarks count:", verify.length);
+    } else {
+      console.warn('chrome.storage.local not found. Cannot persist import.');
+    }
+
+    return updatedBookmarks;
   }
 };
 
