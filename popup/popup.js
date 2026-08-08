@@ -26,14 +26,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         reject(new Error('Content script communication timed out.'));
       }, 1500);
 
-      chrome.tabs.sendMessage(tabId, { action: 'getVideoInfo' }, (res) => {
+      try {
+        chrome.tabs.sendMessage(tabId, { action: 'getVideoInfo' }, (res) => {
+          clearTimeout(timeoutId);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(res);
+          }
+        });
+      } catch (err) {
         clearTimeout(timeoutId);
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(res);
-        }
-      });
+        reject(err);
+      }
     });
   }
 
@@ -229,7 +234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   /**
    * Updates the UI to a specific state:
-   * 'loading', 'detected', 'not-detected', 'error'
+   * 'loading', 'detected', 'not-detected', 'reconnect', 'error'
    */
   function setUIState(state, data = {}) {
     if (!currentVideoSection) return;
@@ -245,6 +250,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const card = currentVideoSection.querySelector('.video-card');
     const saveButton = document.getElementById('save-bookmark-btn');
+    const noteContainer = document.querySelector('.note-container');
+
+    // Hide note field in non-detected, error, loading, and reconnect states
+    if (noteContainer) {
+      if (state === 'detected') {
+        noteContainer.style.display = 'flex';
+      } else {
+        noteContainer.style.display = 'none';
+      }
+    }
 
     if (state === 'loading') {
       if (card) card.style.display = 'none';
@@ -268,6 +283,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `;
       currentVideoSection.insertBefore(notDetectedDiv, card);
+    }
+    else if (state === 'reconnect') {
+      if (card) card.style.display = 'none';
+      if (saveButton) saveButton.style.display = 'none';
+
+      const reconnectDiv = document.createElement('div');
+      reconnectDiv.className = 'state-container reconnect-state';
+      reconnectDiv.innerHTML = `
+        <div class="empty-state-small">
+          <p class="state-title">TubeMark needs to reconnect to this YouTube page</p>
+          <p class="state-message">Please refresh the YouTube page and try again.</p>
+        </div>
+      `;
+      currentVideoSection.insertBefore(reconnectDiv, card);
     }
     else if (state === 'error') {
       if (card) card.style.display = 'none';
@@ -376,7 +405,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (msgError) {
       console.warn('Messaging failure (might need reload):', msgError);
-      setUIState('error');
+      const errMsg = msgError.message || '';
+      if (
+        errMsg.includes('Could not establish connection') ||
+        errMsg.includes('Receiving end does not exist') ||
+        errMsg.includes('connection')
+      ) {
+        setUIState('reconnect');
+      } else {
+        setUIState('error');
+      }
     }
 
   } catch (error) {
