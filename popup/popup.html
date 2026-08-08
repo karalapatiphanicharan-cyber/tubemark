@@ -8,31 +8,63 @@
 </head>
 <body>
   <header class="header">
-    <div class="logo-container">
-      <img src="../icons/icon48.png" alt="TubeMark Logo" class="logo">
-      <h1 class="title">TubeMark</h1>
+    <div class="header-left">
+      <span class="header-logo">🔖</span>
+      <div class="header-titles">
+        <h1 class="title">TubeMark</h1>
+        <p class="subtitle">Save YouTube videos for later</p>
+      </div>
     </div>
+    <button class="settings-btn" aria-label="Settings" title="Settings">⚙️</button>
   </header>
 
-  <main class="content">
-    <p class="subtitle">Save YouTube videos with progress and notes.</p>
+  <main class="main-content">
+    <!-- Current Video Section -->
+    <section class="section current-video-section" aria-labelledby="current-video-heading">
+      <h2 id="current-video-heading" class="section-title">Current Video</h2>
 
-    <div class="badge-container">
-      <span class="badge">Phase 0</span>
-    </div>
+      <div class="video-card">
+        <div class="thumbnail-placeholder">
+          <!-- An elegant inline SVG representing a video player or film strip -->
+          <svg viewBox="0 0 100 56" class="thumbnail-svg" aria-hidden="true">
+            <rect width="100" height="56" rx="4" fill="#282828" />
+            <polygon points="45,22 45,34 57,28" fill="#ff0000" />
+          </svg>
+          <span class="demo-badge">Demo Video</span>
+        </div>
 
-    <div class="status-box">
-      <p class="status-title">Extension setup complete.</p>
-      <p class="status-message">Ready to load on YouTube pages.</p>
-    </div>
+        <div class="video-details">
+          <h3 class="video-title" title="Introduction to Web Development - Beginner Tutorial [Demo Only]">
+            Introduction to Web Development - Beginner Tutorial [Demo Only]
+          </h3>
+          <p class="channel-name">Tech Academy Demo</p>
 
-    <div class="placeholder-section">
-      <p class="no-bookmarks">No bookmarks yet.</p>
-    </div>
+          <div class="video-meta">
+            <span class="timestamp" aria-label="Playback progress">⏱ 00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="save-bookmark-btn" class="save-btn" aria-label="Save current video bookmark">
+        <span>🔖</span> Save Bookmark
+      </button>
+      <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    </section>
+
+    <!-- Saved Bookmarks Section -->
+    <section class="section saved-bookmarks-section" aria-labelledby="saved-bookmarks-heading">
+      <h2 id="saved-bookmarks-heading" class="section-title">Saved Bookmarks</h2>
+
+      <div class="empty-state">
+        <div class="empty-icon" aria-hidden="true">📭</div>
+        <h3 class="empty-title">No bookmarks yet</h3>
+        <p class="empty-text">Your saved YouTube videos will appear here.</p>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
-    <p class="footer-text">TubeMark v1.0.0</p>
+    <p class="footer-text">TubeMark v1.0.0 &bull; Phase 1 UI</p>
   </footer>
 
   <script src="popup.js"></script>

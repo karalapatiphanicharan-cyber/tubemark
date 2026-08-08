@@ -1,15 +1,22 @@
-/* TubeMark Popup Dark Theme Stylesheet */
+/* TubeMark Popup Dark Theme Stylesheet - Phase 1 Premium UI */
 
 :root {
   --bg-primary: #0f0f0f;
-  --bg-secondary: #1f1f1f;
-  --bg-card: #282828;
+  --bg-secondary: #161616;
+  --bg-card: #212121;
+  --bg-hover: #2d2d2d;
+  --border-color: #303030;
+
   --text-primary: #f1f1f1;
   --text-secondary: #aaaaaa;
+  --text-disabled: #717171;
+
   --accent-color: #ff0000; /* YouTube Red */
   --accent-hover: #cc0000;
-  --border-color: #3f3f3f;
-  --badge-bg: rgba(255, 0, 0, 0.1);
+
+  --toast-bg: #282828;
+  --toast-border: #ff0000;
+
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -20,105 +27,265 @@
 }
 
 body {
-  width: 320px;
+  width: 360px;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-family);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.4;
   overflow-x: hidden;
 }
 
-/* Header styling */
+/* Header */
 .header {
   background-color: var(--bg-secondary);
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.logo-container {
+.header-left {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.logo {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
+.header-logo {
+  font-size: 22px;
+}
+
+.header-titles {
+  display: flex;
+  flex-direction: column;
 }
 
 .title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.5px;
-}
-
-/* Content area styling */
-.content {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  letter-spacing: -0.3px;
 }
 
 .subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-.badge-container {
-  display: flex;
-  justify-content: center;
-}
-
-.badge {
-  background-color: var(--badge-bg);
-  color: var(--accent-color);
   font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 0, 0, 0.2);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-secondary);
 }
 
-.status-box {
+.settings-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-secondary);
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.settings-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.settings-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+}
+
+/* Main Content Layout */
+.main-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+/* Video Card */
+.video-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 12px;
-  text-align: center;
+  padding: 10px;
+  display: flex;
+  gap: 12px;
 }
 
-.status-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: #2ec4b6; /* Clean turquoise indicator */
-  margin-bottom: 4px;
+.thumbnail-placeholder {
+  position: relative;
+  width: 100px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.status-message {
+.thumbnail-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.demo-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background-color: rgba(0, 0, 0, 0.75);
+  color: #ffb703; /* Yellow-gold accent for demo */
+  font-size: 8px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.video-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0; /* Ensures proper text-overflow behavior in flex container */
+  flex-grow: 1;
+}
+
+.video-title {
   font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.channel-name {
+  font-size: 11px;
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.placeholder-section {
-  padding: 24px 0 12px 0;
-  text-align: center;
-  border-top: 1px dashed var(--border-color);
+.video-meta {
+  margin-top: 4px;
 }
 
-.no-bookmarks {
+.timestamp {
+  font-size: 11px;
+  color: var(--accent-color);
+  background-color: rgba(255, 0, 0, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Save Bookmark Button */
+.save-btn {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 14px;
   font-size: 13px;
-  color: var(--text-secondary);
-  font-style: italic;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
-/* Footer styling */
+.save-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+.save-btn:active {
+  transform: scale(0.98);
+}
+
+.save-btn:focus-visible {
+  outline: 2px solid #ffffff;
+}
+
+/* Toast Message */
+.toast {
+  background-color: var(--toast-bg);
+  color: var(--text-primary);
+  border-left: 3px solid var(--toast-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 6px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toast.hidden {
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  /* Use display none via JS, or keep in layout to avoid layout shifts */
+}
+
+/* Saved Bookmarks Section (Empty State) */
+.empty-state {
+  background-color: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.empty-icon {
+  font-size: 28px;
+  margin-bottom: 4px;
+  filter: grayscale(0.2);
+}
+
+.empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-width: 220px;
+}
+
+/* Footer */
 .footer {
   background-color: var(--bg-secondary);
   padding: 10px 16px;
@@ -127,6 +294,6 @@ body {
 }
 
 .footer-text {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
 }
