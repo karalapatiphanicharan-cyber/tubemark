@@ -260,6 +260,132 @@ document.addEventListener('DOMContentLoaded', async () => {
           actionGroupDiv.style.display = 'flex';
           actionGroupDiv.style.gap = '8px';
 
+          const continueBtn = document.createElement('button');
+          continueBtn.className = 'continue-watching-btn';
+          continueBtn.innerHTML = '▶ Continue Watching';
+          continueBtn.title = 'Continue watching from saved position';
+
+          continueBtn.addEventListener('click', async () => {
+            console.log("[TubeMark] Continue Watching started");
+            console.log("[TubeMark] Bookmark ID:", bookmark.id);
+            console.log("[TubeMark] Target URL:", bookmark.url);
+            console.log("[TubeMark] Target timestamp:", bookmark.currentTime);
+
+            // 1. Validate YouTube URL
+            const isUrlValid = typeof TubeMarkYouTubeUtils !== 'undefined'
+              ? TubeMarkYouTubeUtils.isYouTubeVideoPage(bookmark.url)
+              : false;
+
+            if (!isUrlValid) {
+              console.error("[TubeMark] Invalid YouTube URL:", bookmark.url);
+              showToast("Unable to open this video.", true);
+              return;
+            }
+
+            // 2. Validate saved currentTime
+            const currentTime = bookmark.currentTime;
+            if (currentTime === undefined || currentTime === null || isNaN(currentTime) || currentTime < 0 || !isFinite(currentTime)) {
+              console.error("[TubeMark] Saved playback position is unavailable:", currentTime);
+              showToast("Saved playback position is unavailable.", true);
+              return;
+            }
+
+            // 3. Validate saved duration
+            const duration = bookmark.duration;
+            if (duration === undefined || duration === null || isNaN(duration) || duration <= 0 || !isFinite(duration)) {
+              console.error("[TubeMark] Saved video duration is invalid:", duration);
+              showToast("Saved video duration is invalid.", true);
+              return;
+            }
+
+            // 4. If current time is greater than or equal to duration, show warning or handle it gracefully
+            if (currentTime >= duration) {
+              console.warn("[TubeMark] Saved playback position is at or beyond duration.");
+            }
+
+            // 5. Open YouTube video in active:false state to keep popup context alive for communication
+            console.log("[TubeMark] Opening YouTube tab");
+            if (typeof chrome !== 'undefined' && chrome.tabs) {
+              chrome.tabs.create({ url: bookmark.url, active: false }, (tab) => {
+                if (chrome.runtime.lastError || !tab || !tab.id) {
+                  console.error("[TubeMark] Failed to open new tab:", chrome.runtime.lastError ? chrome.runtime.lastError.message : "No tab info");
+                  showToast("Unable to open this video.", true);
+                  return;
+                }
+
+                const tabId = tab.id;
+                let attempts = 0;
+                const maxAttempts = 20; // 10 seconds timeout
+
+                showToast("▶ Loading video player...");
+
+                const intervalId = setInterval(() => {
+                  attempts++;
+                  console.log(`[TubeMark] Waiting for content script (Attempt ${attempts}/${maxAttempts})`);
+
+                  chrome.tabs.sendMessage(tabId, { action: "ping" }, (res) => {
+                    if (chrome.runtime.lastError) {
+                      // Tab might still be loading, ignore runtime error during polling
+                      if (attempts >= maxAttempts) {
+                        clearInterval(intervalId);
+                        console.error("[TubeMark] Content script unavailable.");
+                        showToast("Unable to resume this video. Please refresh YouTube and try again.", true);
+                        // Make tab active anyway so they can see the page
+                        chrome.tabs.update(tabId, { active: true });
+                      }
+                      return;
+                    }
+
+                    if (res && res.success) {
+                      clearInterval(intervalId);
+                      console.log("[TubeMark] Content script is responsive! Sending seek request...");
+
+                      // Format human-readable target position
+                      const formatSecs = (seconds) => {
+                        const mins = Math.floor(seconds / 60);
+                        const secs = Math.floor(seconds % 60);
+                        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                      };
+
+                      showToast(`▶ Resuming from ${formatSecs(currentTime)}`);
+
+                      chrome.tabs.sendMessage(tabId, { action: "SEEK_TO_TIMESTAMP", timestamp: currentTime }, (seekRes) => {
+                        // Focus/activate the tab now so the user can watch it!
+                        chrome.tabs.update(tabId, { active: true });
+
+                        if (chrome.runtime.lastError) {
+                          console.error("[TubeMark] Seek message failed:", chrome.runtime.lastError.message);
+                        } else if (seekRes && seekRes.success) {
+                          console.log("[TubeMark] Seek successful");
+                        } else {
+                          const errorType = seekRes ? seekRes.error : "unknown";
+                          console.error("[TubeMark] Seek failed inside content script:", errorType);
+                          if (errorType === "video_not_found") {
+                            showToast("Unable to find the video player.", true);
+                          } else if (errorType === "invalid_duration") {
+                            showToast("Saved video duration is invalid.", true);
+                          } else {
+                            showToast("Unable to resume from the saved position.", true);
+                          }
+                        }
+                      });
+                    } else {
+                      if (attempts >= maxAttempts) {
+                        clearInterval(intervalId);
+                        console.error("[TubeMark] Content script ping response invalid.");
+                        showToast("Unable to resume this video. Please refresh YouTube and try again.", true);
+                        chrome.tabs.update(tabId, { active: true });
+                      }
+                    }
+                  });
+                }, 500);
+              });
+            } else {
+              console.error("[TubeMark] chrome.tabs API not available.");
+              showToast("Unable to open this video.", true);
+            }
+          });
+
           const openBtn = document.createElement('button');
           openBtn.className = 'open-video-btn';
           openBtn.textContent = 'Open Video';
@@ -278,6 +404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           deleteBtn.textContent = 'Delete';
           deleteBtn.title = 'Delete this video bookmark';
 
+          actionGroupDiv.appendChild(continueBtn);
           actionGroupDiv.appendChild(openBtn);
           actionGroupDiv.appendChild(deleteBtn);
 

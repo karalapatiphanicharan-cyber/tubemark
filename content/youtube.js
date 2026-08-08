@@ -127,6 +127,160 @@
     };
   }
 
+  /**
+   * Show a subtle, beautiful toast on the YouTube page itself
+   */
+  function showPageToast(message, isError = false) {
+    const existing = document.getElementById("tubemark-page-toast");
+    if (existing) {
+      existing.remove();
+    }
+
+    const toast = document.createElement("div");
+    toast.id = "tubemark-page-toast";
+    toast.textContent = message;
+
+    // Premium styling matching YouTube theme
+    toast.style.position = "fixed";
+    toast.style.bottom = "24px";
+    toast.style.left = "24px";
+    toast.style.zIndex = "999999";
+    toast.style.backgroundColor = isError ? "#cc0000" : "#0f0f0f";
+    toast.style.color = "#ffffff";
+    toast.style.padding = "10px 16px";
+    toast.style.borderRadius = "4px";
+    toast.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    toast.style.fontSize = "13px";
+    toast.style.fontWeight = "600";
+    toast.style.boxShadow = "0 4px 16px rgba(0,0,0,0.6)";
+    toast.style.borderLeft = isError ? "4px solid #ff4d4d" : "4px solid #ff0000";
+    toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+    toast.style.display = "flex";
+    toast.style.alignItems = "center";
+    toast.style.pointerEvents = "none";
+
+    document.body.appendChild(toast);
+
+    // Animate in
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(10px)";
+    requestAnimationFrame(() => {
+      toast.style.opacity = "1";
+      toast.style.transform = "translateY(0)";
+    });
+
+    // Fade out and remove after 3 seconds
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(10px)";
+      setTimeout(() => {
+        toast.remove();
+      }, 300);
+    }, 3000);
+  }
+
+  function formatTime(seconds) {
+    if (isNaN(seconds) || seconds === null) return "00:00";
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    const pad = (num) => String(num).padStart(2, '0');
+
+    if (hrs > 0) {
+      return `${hrs}:${pad(mins)}:${pad(secs)}`;
+    }
+    return `${pad(mins)}:${pad(secs)}`;
+  }
+
+  function performSeek(timestamp, sendResponse) {
+    const maxAttempts = 20; // 10 seconds timeout (20 * 500ms)
+    let attempts = 0;
+
+    const findAndSeek = () => {
+      attempts++;
+      const videoSelectors = [
+        'ytd-player video',
+        '#movie_player video',
+        '.html5-main-video',
+        'video'
+      ];
+
+      let video = null;
+      for (const selector of videoSelectors) {
+        const el = document.querySelector(selector);
+        if (el) {
+          video = el;
+          break;
+        }
+      }
+
+      if (!video) {
+        if (attempts >= maxAttempts) {
+          console.error("[TubeMark] Video player not found after 10s.");
+          showPageToast("Unable to find the video player.", true);
+          sendResponse({ success: false, error: "video_not_found", errorType: "error_video_not_found" });
+          return;
+        }
+        setTimeout(findAndSeek, 500);
+        return;
+      }
+
+      console.log("[TubeMark] Video player element found:", video);
+
+      // Check if video is loaded and ready
+      if (video.readyState < 1 && isNaN(video.duration)) {
+        console.log("[TubeMark] Waiting for loadedmetadata event...");
+        const onMetadata = () => {
+          video.removeEventListener('loadedmetadata', onMetadata);
+          doActualSeek(video, timestamp, sendResponse);
+        };
+        video.addEventListener('loadedmetadata', onMetadata);
+
+        // Fallback timeout in case event doesn't fire but duration becomes available
+        setTimeout(() => {
+          video.removeEventListener('loadedmetadata', onMetadata);
+          if (video.readyState >= 1 || !isNaN(video.duration)) {
+            doActualSeek(video, timestamp, sendResponse);
+          } else {
+            console.error("[TubeMark] Video metadata timeout.");
+            showPageToast("Unable to resume from the saved position.", true);
+            sendResponse({ success: false, error: "metadata_timeout", errorType: "error_metadata_timeout" });
+          }
+        }, 5000);
+      } else {
+        doActualSeek(video, timestamp, sendResponse);
+      }
+    };
+
+    findAndSeek();
+  }
+
+  function doActualSeek(video, timestamp, sendResponse) {
+    try {
+      const duration = video.duration;
+      if (isNaN(duration) || duration <= 0) {
+        console.error("[TubeMark] Video duration is invalid:", duration);
+        showPageToast("Saved video duration is invalid.", true);
+        sendResponse({ success: false, error: "invalid_duration", errorType: "error_invalid_duration" });
+        return;
+      }
+
+      // Clamp target time slightly before the end of the video
+      const targetTime = Math.min(timestamp, Math.max(0, duration - 0.5));
+      console.log(`[TubeMark] Seeking to ${targetTime}s (target: ${timestamp}s, duration: ${duration}s)`);
+
+      video.currentTime = targetTime;
+
+      showPageToast(`▶ Resuming from ${formatTime(targetTime)}`, false);
+      sendResponse({ success: true });
+    } catch (err) {
+      console.error("[TubeMark] Seek operation error:", err);
+      showPageToast("Unable to resume from the saved position.", true);
+      sendResponse({ success: false, error: err.message, errorType: "error_seek" });
+    }
+  }
+
   // Set up message listener for on-demand requests from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'ping') {
@@ -139,6 +293,15 @@
         console.error('TubeMark: Error extracting video metadata:', error);
         sendResponse({ success: false, error: error.message });
       }
+    } else if (request.action === 'SEEK_TO_TIMESTAMP') {
+      try {
+        console.log("[TubeMark] SEEK_TO_TIMESTAMP received, target timestamp:", request.timestamp);
+        performSeek(request.timestamp, sendResponse);
+      } catch (error) {
+        console.error('TubeMark: Error during seek:', error);
+        sendResponse({ success: false, error: error.message, errorType: "error_seek" });
+      }
+      return true; // Keep message port open for asynchronous response
     }
     return true;
   });
