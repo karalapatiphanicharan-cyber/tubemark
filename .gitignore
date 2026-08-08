@@ -1,17 +1,14 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# OS Files
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# IDEs and editors
-.idea/
+# Developer IDEs and editors
 .vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
+.idea/
+
+# Node/NPM if any gets added by user in future
+node_modules/
+package-lock.json
+
+# Logs
+*.log

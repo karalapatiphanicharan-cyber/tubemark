@@ -1,182 +1,27 @@
-/**
- * TubeMark Storage Utility Module
- *
- * Provides clean, reusable interface to chrome.storage.local.
- * Separates storage logic from popup UI logic.
- */
+// TubeMark — Storage Utility (Phase 0)
+//
+// This file will house the bookmark storage operations using chrome.storage API.
+// Complete bookmark schema storage system will be implemented in subsequent phases.
+//
+// Planned functions:
+// - saveBookmark(bookmark)
+// - getBookmarks()
+// - updateBookmark(id, updatedFields)
+// - deleteBookmark(id)
 
 const TubeMarkStorage = {
-  /**
-   * Helper to generate a unique random UUID with a fallback
-   */
-  generateUUID: () => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    // Reliable fallback ID generator
-    return 'bookmark-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
+  // Skeletons/placeholders for storage operations
+  async saveBookmark() {
+    console.log('saveBookmark called (Phase 0 Placeholder)');
   },
-
-  /**
-   * Retrieves all saved bookmarks from chrome.storage.local.
-   * Returns a promise resolving to an array of bookmark objects.
-   * @returns {Promise<Array>} List of bookmarks
-   */
-  getBookmarks: async () => {
-    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
-      console.warn('chrome.storage.local not found, returning mock empty list.');
-      return [];
-    }
-
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.get(['bookmarks'], (result) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(result.bookmarks || []);
-        }
-      });
-    });
+  async getBookmarks() {
+    console.log('getBookmarks called (Phase 0 Placeholder)');
+    return [];
   },
-
-  /**
-   * Saves or updates a bookmark.
-   * Prevents duplicates by matching videoId.
-   * If video is already bookmarked, updates properties in place (e.g., currentTime, duration, savedAt).
-   * @param {Object} bookmarkData
-   * @returns {Promise<Object>} The saved or updated bookmark
-   */
-  saveBookmark: async (bookmarkData) => {
-    if (!bookmarkData || !bookmarkData.videoId) {
-      throw new Error('Invalid bookmark data: videoId is required.');
-    }
-
-    const bookmarks = await TubeMarkStorage.getBookmarks();
-    const existingIndex = bookmarks.findIndex(b => b.videoId === bookmarkData.videoId);
-
-    let savedBookmark = null;
-
-    if (existingIndex !== -1) {
-      // Update existing bookmark in place
-      const existing = bookmarks[existingIndex];
-      savedBookmark = {
-        ...existing,
-        title: bookmarkData.title || existing.title,
-        channel: bookmarkData.channel || existing.channel,
-        url: bookmarkData.url || existing.url,
-        thumbnail: bookmarkData.thumbnail || existing.thumbnail,
-        currentTime: typeof bookmarkData.currentTime === 'number' ? bookmarkData.currentTime : existing.currentTime,
-        duration: typeof bookmarkData.duration === 'number' ? bookmarkData.duration : existing.duration,
-        note: typeof bookmarkData.note === 'string' ? bookmarkData.note : (existing.note || ''),
-        savedAt: Date.now() // Update saved timestamp
-      };
-      bookmarks[existingIndex] = savedBookmark;
-    } else {
-      // Insert new bookmark
-      savedBookmark = {
-        id: bookmarkData.id || TubeMarkStorage.generateUUID(),
-        videoId: bookmarkData.videoId,
-        title: bookmarkData.title || 'Unknown Title',
-        channel: bookmarkData.channel || 'Unknown Channel',
-        url: bookmarkData.url || '',
-        thumbnail: bookmarkData.thumbnail || '',
-        currentTime: typeof bookmarkData.currentTime === 'number' ? bookmarkData.currentTime : 0,
-        duration: typeof bookmarkData.duration === 'number' ? bookmarkData.duration : null,
-        note: typeof bookmarkData.note === 'string' ? bookmarkData.note : '',
-        savedAt: Date.now()
-      };
-      bookmarks.push(savedBookmark);
-    }
-
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.set({ bookmarks }, () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      // Post-write verification (verify that the saved bookmark actually exists)
-      const verifyBookmarks = await TubeMarkStorage.getBookmarks();
-      const verifiedExist = verifyBookmarks.some(b => b.videoId === bookmarkData.videoId);
-      if (!verifiedExist) {
-        throw new Error("Post-write storage verification failed: Saved bookmark was not found in local storage.");
-      }
-      console.log("[TubeMark] Storage verification successful:", verifyBookmarks);
-    } else {
-      console.warn('chrome.storage.local not found. Cannot persist changes.');
-    }
-
-    return savedBookmark;
+  async updateBookmark() {
+    console.log('updateBookmark called (Phase 0 Placeholder)');
   },
-
-  /**
-   * Deletes a bookmark by its unique ID.
-   * @param {string} id
-   * @returns {Promise<boolean>} True if successful
-   */
-  deleteBookmark: async (id) => {
-    if (!id) return false;
-
-    console.log("[TubeMark] Delete started");
-    console.log("[TubeMark] Bookmark ID:", id);
-
-    const bookmarks = await TubeMarkStorage.getBookmarks();
-    console.log("[TubeMark] Existing bookmark count:", bookmarks.length);
-
-    const filtered = bookmarks.filter(b => b.id !== id);
-
-    if (bookmarks.length === filtered.length) {
-      console.warn("[TubeMark] Delete failed: Bookmark ID not found in storage.");
-      return false; // Nothing was deleted
-    }
-
-    console.log("[TubeMark] Removing bookmark...");
-
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.set({ bookmarks: filtered }, () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      console.log("[TubeMark] Storage update completed");
-
-      // Post-delete verification (verify that the bookmark is actually removed)
-      const verifyBookmarks = await TubeMarkStorage.getBookmarks();
-      const verifiedDeleted = !verifyBookmarks.some(b => b.id === id);
-      if (!verifiedDeleted) {
-        throw new Error("Post-delete storage verification failed: Deleted bookmark still exists in local storage.");
-      }
-      console.log("[TubeMark] Storage verification successful. Remaining bookmarks:", verifyBookmarks.length);
-    } else {
-      console.warn('chrome.storage.local not found. Cannot persist changes.');
-    }
-
-    console.log("[TubeMark] Delete completed");
-    return true;
-  },
-
-  /**
-   * Retrieves a bookmark matching the provided videoId.
-   * Returns null if not found.
-   * @param {string} videoId
-   * @returns {Promise<Object|null>} Bookmark or null
-   */
-  getBookmarkByVideoId: async (videoId) => {
-    if (!videoId) return null;
-    const bookmarks = await TubeMarkStorage.getBookmarks();
-    return bookmarks.find(b => b.videoId === videoId) || null;
+  async deleteBookmark() {
+    console.log('deleteBookmark called (Phase 0 Placeholder)');
   }
 };
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = TubeMarkStorage;
-}

@@ -1,13 +1,10 @@
-/**
- * TubeMark Background Service Worker
- *
- * Phase 0: Minimal installation listener.
- */
+// TubeMark — Background Service Worker (Phase 0)
+//
+// In future phases, this background script will handle:
+// - Bookmark creation, updates, and synchronization tasks
+// - Browser action icon changes
+// - Cross-context event message forwarding
 
-chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
-    console.log('TubeMark Extension successfully installed (Phase 0).');
-  } else if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
-    console.log('TubeMark Extension successfully updated to v' + chrome.runtime.getManifest().version);
-  }
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('TubeMark Extension background worker successfully installed (Phase 0).');
 });
