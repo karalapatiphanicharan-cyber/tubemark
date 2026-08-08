@@ -87,7 +87,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 2500);
   }
 
-  // Helper to check and update the Save Button visual states (Already Saved Detection)
+  const noteTextarea = document.getElementById('video-note');
+  const charCounter = document.getElementById('char-counter');
+  const MAX_CHAR_LIMIT = 500;
+
+  // Function to update the character counter state and UI
+  function updateCharCounter() {
+    if (!noteTextarea || !charCounter) return;
+    const len = noteTextarea.value.length;
+    charCounter.textContent = `${len} / ${MAX_CHAR_LIMIT}`;
+    if (len >= MAX_CHAR_LIMIT) {
+      charCounter.classList.add('limit-reached');
+    } else {
+      charCounter.classList.remove('limit-reached');
+    }
+  }
+
+  // Handle Note input and paste events to strictly enforce character limits (Phase 5)
+  if (noteTextarea) {
+    noteTextarea.addEventListener('input', () => {
+      if (noteTextarea.value.length > MAX_CHAR_LIMIT) {
+        noteTextarea.value = noteTextarea.value.slice(0, MAX_CHAR_LIMIT);
+      }
+      updateCharCounter();
+    });
+
+    noteTextarea.addEventListener('paste', (e) => {
+      // Allow the default paste, but truncate on next tick
+      setTimeout(() => {
+        if (noteTextarea.value.length > MAX_CHAR_LIMIT) {
+          noteTextarea.value = noteTextarea.value.slice(0, MAX_CHAR_LIMIT);
+        }
+        updateCharCounter();
+      }, 0);
+    });
+  }
+
+  // Helper to check and update the Save Button visual states and pre-populate note field (Phase 5)
   async function updateSaveButtonVisualState(videoId) {
     if (!saveBtn || !videoId) return;
 
@@ -97,11 +133,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (existingBookmark) {
           saveBtn.innerHTML = '<span>✓</span> Already Saved';
           saveBtn.className = 'save-btn already-saved';
-          saveBtn.title = 'Click to update to latest playback position';
+          saveBtn.title = 'Click to update to latest playback position and note';
+
+          // Pre-populate note from existing bookmark securely (fallback to empty string)
+          if (noteTextarea) {
+            noteTextarea.value = existingBookmark.note || '';
+            updateCharCounter();
+          }
         } else {
           saveBtn.innerHTML = '<span>🔖</span> Save Bookmark';
           saveBtn.className = 'save-btn';
           saveBtn.title = 'Save current video bookmark';
+
+          if (noteTextarea) {
+            noteTextarea.value = '';
+            updateCharCounter();
+          }
         }
       }
     } catch (err) {
@@ -109,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Initialize Save Button click listener (Phase 4 save bookmark flow)
+  // Initialize Save Button click listener (Phase 5 save bookmark with optional note flow)
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
       try {
@@ -130,7 +177,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.warn('Could not query freshest playback position, using cached metadata:', freshestErr);
         }
 
-        // Assemble Phase 4 bookmark object
+        // Whitespace and length handling for optional note (Phase 5)
+        let noteValue = '';
+        if (noteTextarea) {
+          noteValue = noteTextarea.value.trim();
+          if (noteValue.length > MAX_CHAR_LIMIT) {
+            noteValue = noteValue.slice(0, MAX_CHAR_LIMIT);
+          }
+        }
+
+        // Assemble Phase 5 bookmark object
         const bookmarkObject = {
           videoId: freshestData.videoId,
           title: freshestData.title,
@@ -138,7 +194,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           url: freshestData.url,
           thumbnail: freshestData.thumbnail,
           currentTime: freshestData.currentTime,
-          duration: freshestData.duration
+          duration: freshestData.duration,
+          note: noteValue
         };
 
         if (typeof TubeMarkStorage !== 'undefined') {
