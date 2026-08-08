@@ -98,6 +98,14 @@ const TubeMarkStorage = {
           }
         });
       });
+
+      // Post-write verification (verify that the saved bookmark actually exists)
+      const verifyBookmarks = await TubeMarkStorage.getBookmarks();
+      const verifiedExist = verifyBookmarks.some(b => b.videoId === bookmarkData.videoId);
+      if (!verifiedExist) {
+        throw new Error("Post-write storage verification failed: Saved bookmark was not found in local storage.");
+      }
+      console.log("[TubeMark] Storage verification successful:", verifyBookmarks);
     } else {
       console.warn('chrome.storage.local not found. Cannot persist changes.');
     }

@@ -7,11 +7,13 @@
 (() => {
   // Prevent duplicate initialization
   if (window.hasTubeMarkLoaded) {
+    console.log("[TubeMark] YouTube content script already loaded on:", window.location.href);
     return;
   }
   window.hasTubeMarkLoaded = true;
 
-  console.log('TubeMark YouTube content script initialized for Page & Playback Detection (Phase 3).');
+  console.log("[TubeMark] YouTube content script loaded");
+  console.log("[TubeMark] URL:", window.location.href);
 
   /**
    * Safe selector retriever to avoid throwing errors on dynamic SPA nodes
@@ -127,7 +129,9 @@
 
   // Set up message listener for on-demand requests from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'getVideoInfo') {
+    if (request.action === 'ping') {
+      sendResponse({ success: true, message: "TubeMark content script is active" });
+    } else if (request.action === 'getVideoInfo') {
       try {
         const metadata = extractVideoMetadata();
         sendResponse({ success: true, data: metadata });
