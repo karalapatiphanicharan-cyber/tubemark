@@ -203,6 +203,77 @@ body {
   align-items: center;
 }
 
+/* Note Container and Custom Notes Input Field Styling (Phase 5) */
+.note-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.note-container:focus-within {
+  border-color: var(--accent-color);
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.note-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+}
+
+.note-optional {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background-color: var(--bg-primary);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.note-textarea {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.note-textarea:focus {
+  border-color: var(--accent-color);
+}
+
+.note-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.char-counter {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.char-counter.limit-reached {
+  color: var(--accent-color);
+}
+
 /* Save Bookmark Button */
 .save-btn {
   background-color: var(--accent-color);

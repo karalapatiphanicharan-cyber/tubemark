@@ -67,6 +67,7 @@ const TubeMarkStorage = {
         thumbnail: bookmarkData.thumbnail || existing.thumbnail,
         currentTime: typeof bookmarkData.currentTime === 'number' ? bookmarkData.currentTime : existing.currentTime,
         duration: typeof bookmarkData.duration === 'number' ? bookmarkData.duration : existing.duration,
+        note: typeof bookmarkData.note === 'string' ? bookmarkData.note : (existing.note || ''),
         savedAt: Date.now() // Update saved timestamp
       };
       bookmarks[existingIndex] = savedBookmark;
@@ -81,6 +82,7 @@ const TubeMarkStorage = {
         thumbnail: bookmarkData.thumbnail || '',
         currentTime: typeof bookmarkData.currentTime === 'number' ? bookmarkData.currentTime : 0,
         duration: typeof bookmarkData.duration === 'number' ? bookmarkData.duration : null,
+        note: typeof bookmarkData.note === 'string' ? bookmarkData.note : '',
         savedAt: Date.now()
       };
       bookmarks.push(savedBookmark);

@@ -45,6 +45,23 @@
         </div>
       </div>
 
+      <!-- Custom Notes Input Field -->
+      <div class="note-container">
+        <div class="note-header">
+          <label for="video-note" class="note-label">Why are you saving this?</label>
+          <span class="note-optional">Optional note</span>
+        </div>
+        <textarea
+          id="video-note"
+          class="note-textarea"
+          placeholder="e.g. Continue from React Hooks. Important for my project."
+          rows="3"
+        ></textarea>
+        <div class="note-footer">
+          <span id="char-counter" class="char-counter">0 / 500</span>
+        </div>
+      </div>
+
       <button id="save-bookmark-btn" class="save-btn" aria-label="Save current video bookmark">
         <span>🔖</span> Save Bookmark
       </button>
