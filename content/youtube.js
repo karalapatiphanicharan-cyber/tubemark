@@ -1,15 +1,110 @@
 /**
- * TubeMark Content Script
+ * TubeMark Content Script - YouTube Video Detection & Scraping
  *
- * Phase 0: Safely initialize without modifying YouTube's page.
- *
- * Future Responsibilities (to be implemented in later phases):
- * 1. YouTube video detection: Monitor the URL/page changes to find valid videos.
- * 2. Current playback position: Extract the video element's current time and duration.
- * 3. YouTube page interaction: Inject bookmark actions or indicators when on a video.
- * 4. Communication: Send and receive messages from the popup or background service worker.
+ * Safely extracts video metadata directly from the page DOM when requested.
  */
 
-(function() {
-  console.log('TubeMark content script loaded safely.');
+(() => {
+  // Prevent duplicate initialization
+  if (window.hasTubeMarkLoaded) {
+    return;
+  }
+  window.hasTubeMarkLoaded = true;
+
+  console.log('TubeMark YouTube content script initialized for Page Detection (Phase 2).');
+
+  /**
+   * Safe selector retriever to avoid throwing errors on dynamic SPA nodes
+   */
+  function safeQueryText(selectors) {
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent || element.innerText;
+        if (text && text.trim()) {
+          return text.trim();
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Scrapes metadata for the current video from the YouTube watch page DOM
+   */
+  function extractVideoMetadata() {
+    // 1. Extract Title
+    // YouTube has updated watch page selectors dynamically, so we check a list of common selectors
+    const titleSelectors = [
+      'ytd-watch-metadata h1.ytd-watch-metadata', // Modern standard
+      'h1.title.style-scope.ytd-video-primary-info-renderer', // Legacy desktop
+      '#container h1.title', // Fallback container
+      'meta[name="title"]', // Meta tags (might not update on SPA navigation immediately, but good backup)
+      'title' // Window/tab title
+    ];
+    let title = safeQueryText(titleSelectors);
+
+    // If using window title fallback, clean up the trailing " - YouTube" part
+    if (title && title.endsWith(' - YouTube')) {
+      title = title.slice(0, -10);
+    }
+    if (!title) {
+      title = 'Unknown Title';
+    }
+
+    // 2. Extract Channel Name
+    const channelSelectors = [
+      'ytd-watch-metadata #owner #channel-name a', // Modern watch metadata owner link
+      'ytd-video-owner-renderer .yt-formatted-string', // Video owner element formatted string
+      '#upload-info #channel-name a', // Older layouts
+      '#owner-name a', // Miniplayer or other structures
+      'meta[itemprop="name"]' // Meta tag for channel name
+    ];
+    let channel = safeQueryText(channelSelectors);
+
+    // Additional backup check for channels (some might have empty text if a elements are not yet populated)
+    if (!channel) {
+      const ownerLink = document.querySelector('ytd-video-owner-renderer a');
+      if (ownerLink) {
+        channel = ownerLink.textContent || ownerLink.innerText;
+      }
+    }
+    if (channel) {
+      channel = channel.trim();
+    } else {
+      channel = 'Unknown Channel';
+    }
+
+    // 3. Extract Video ID from current URL
+    let videoId = null;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      videoId = urlParams.get('v');
+    } catch (e) {
+      // ignore
+    }
+
+    return {
+      videoId: videoId || '',
+      title: title,
+      channel: channel,
+      url: window.location.href,
+      thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : ''
+    };
+  }
+
+  // Set up message listener for on-demand requests from popup
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'getVideoInfo') {
+      try {
+        const metadata = extractVideoMetadata();
+        sendResponse({ success: true, data: metadata });
+      } catch (error) {
+        console.error('TubeMark: Error extracting video metadata:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    }
+    // Return true to indicate asynchronous response if needed (though sync is fine here)
+    return true;
+  });
 })();

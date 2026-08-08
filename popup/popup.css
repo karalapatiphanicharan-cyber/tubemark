@@ -1,4 +1,4 @@
-/* TubeMark Popup Dark Theme Stylesheet - Phase 1 Premium UI */
+/* TubeMark Popup Dark Theme Stylesheet - Phase 1 & 2 Premium UI */
 
 :root {
   --bg-primary: #0f0f0f;
@@ -250,7 +250,6 @@ body {
   opacity: 0;
   transform: translateY(4px);
   pointer-events: none;
-  /* Use display none via JS, or keep in layout to avoid layout shifts */
 }
 
 /* Saved Bookmarks Section (Empty State) */
@@ -283,6 +282,49 @@ body {
   font-size: 11px;
   color: var(--text-secondary);
   max-width: 220px;
+}
+
+/* Dynamic State Container Styling (Phase 2) */
+.state-container {
+  background-color: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.state-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.empty-state-small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.state-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.state-title.error-text {
+  color: #ff3333;
+}
+
+.state-message {
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-width: 240px;
 }
 
 /* Footer */
