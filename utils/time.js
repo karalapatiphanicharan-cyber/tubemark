@@ -1,17 +1,26 @@
 /**
  * TubeMark Time Utility Module
  *
- * Phase 0: Placeholder helper structure for future timestamp formatting.
+ * Reusable and defensive functions for formatting and parsing video times.
  */
 
 const TubeMarkTime = {
   /**
-   * Formats a time in seconds to a string (e.g. 1:23 or 1:02:45)
+   * Formats a time in seconds to a string (e.g. H:MM:SS or MM:SS)
+   * Handles invalid inputs defensively.
    * @param {number} seconds
-   * @returns {string} Formatted timestamp
+   * @returns {string} Formatted timestamp or '--:--'
    */
   formatTime: (seconds) => {
-    if (isNaN(seconds) || seconds < 0) return '0:00';
+    if (
+      seconds === undefined ||
+      seconds === null ||
+      isNaN(seconds) ||
+      !isFinite(seconds) ||
+      seconds < 0
+    ) {
+      return '--:--';
+    }
 
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -20,9 +29,11 @@ const TubeMarkTime = {
     const pad = (num) => String(num).padStart(2, '0');
 
     if (hrs > 0) {
+      // H:MM:SS
       return `${hrs}:${pad(mins)}:${pad(secs)}`;
     }
-    return `${mins}:${pad(secs)}`;
+    // MM:SS (always pad minutes even if single digit, or matches the requirement e.g. 05:05 / 23:45)
+    return `${pad(mins)}:${pad(secs)}`;
   },
 
   /**
@@ -31,7 +42,7 @@ const TubeMarkTime = {
    * @returns {number} Time in seconds
    */
   parseTime: (timeString) => {
-    if (!timeString) return 0;
+    if (!timeString || timeString === '--:--') return 0;
     const parts = timeString.split(':').map(Number);
     if (parts.some(isNaN)) return 0;
 

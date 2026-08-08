@@ -11,7 +11,7 @@
   }
   window.hasTubeMarkLoaded = true;
 
-  console.log('TubeMark YouTube content script initialized for Page Detection (Phase 2).');
+  console.log('TubeMark YouTube content script initialized for Page & Playback Detection (Phase 3).');
 
   /**
    * Safe selector retriever to avoid throwing errors on dynamic SPA nodes
@@ -84,12 +84,44 @@
       // ignore
     }
 
+    // 4. Extract Current Playback Position & Duration from the HTML5 video element (Phase 3)
+    let currentTime = 0;
+    let duration = null;
+
+    try {
+      // Query common selectors for the HTML5 video tag on YouTube
+      const videoSelectors = [
+        'ytd-player video',
+        '#movie_player video',
+        '.html5-main-video',
+        'video'
+      ];
+
+      let videoElement = null;
+      for (const selector of videoSelectors) {
+        const el = document.querySelector(selector);
+        if (el) {
+          videoElement = el;
+          break;
+        }
+      }
+
+      if (videoElement) {
+        currentTime = typeof videoElement.currentTime === 'number' ? videoElement.currentTime : 0;
+        duration = typeof videoElement.duration === 'number' && !isNaN(videoElement.duration) ? videoElement.duration : null;
+      }
+    } catch (err) {
+      console.warn('TubeMark: Failed to read from video element:', err);
+    }
+
     return {
       videoId: videoId || '',
       title: title,
       channel: channel,
       url: window.location.href,
-      thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : ''
+      thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '',
+      currentTime: currentTime,
+      duration: duration
     };
   }
 
@@ -104,7 +136,6 @@
         sendResponse({ success: false, error: error.message });
       }
     }
-    // Return true to indicate asynchronous response if needed (though sync is fine here)
     return true;
   });
 })();
