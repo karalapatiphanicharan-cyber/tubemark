@@ -413,7 +413,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const noteTextarea = document.getElementById('video-note');
   const charCounter = document.getElementById('char-counter');
+  const toggleNoteBtn = document.getElementById('toggle-note-btn');
+  const noteContainer = document.querySelector('.note-container');
   const MAX_CHAR_LIMIT = 500;
+
+  // Helper function to handle expand/collapse behavior of the note section
+  function setNoteExpanded(expanded, shouldFocus = false) {
+    if (!toggleNoteBtn || !noteContainer) return;
+    if (expanded) {
+      noteContainer.classList.remove('collapsed');
+      toggleNoteBtn.textContent = '− Hide note';
+      toggleNoteBtn.setAttribute('aria-expanded', 'true');
+      if (shouldFocus && noteTextarea) {
+        noteTextarea.focus();
+      }
+    } else {
+      noteContainer.classList.add('collapsed');
+      toggleNoteBtn.textContent = '+ Add a note';
+      toggleNoteBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  if (toggleNoteBtn) {
+    toggleNoteBtn.addEventListener('click', () => {
+      const isExpanded = toggleNoteBtn.getAttribute('aria-expanded') === 'true';
+      setNoteExpanded(!isExpanded, true);
+    });
+  }
 
   // Function to update the character counter state and UI
   function updateCharCounter() {
@@ -463,6 +489,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (noteTextarea) {
             noteTextarea.value = existingBookmark.note || '';
             updateCharCounter();
+            if (existingBookmark.note && existingBookmark.note.trim() !== '') {
+              setNoteExpanded(true, false);
+            } else {
+              setNoteExpanded(false, false);
+            }
           }
         } else {
           saveBtn.innerHTML = '<span>🔖</span> Save Bookmark';
@@ -472,6 +503,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (noteTextarea) {
             noteTextarea.value = '';
             updateCharCounter();
+            setNoteExpanded(false, false);
           }
         }
       }
