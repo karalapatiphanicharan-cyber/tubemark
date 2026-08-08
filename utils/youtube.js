@@ -1,23 +1,17 @@
 /**
  * TubeMark YouTube Utility Module
  *
- * Phase 0: Structure for future functions.
- *
- * Future functions to implement:
- *
- * - getVideoId(url)
- *   Extracts the YouTube video ID from a URL.
- *
- * - isYouTubeVideoPage(url)
- *   Checks if a given URL is a YouTube watch page.
- *
- * - createTimestampUrl(videoId, seconds)
- *   Creates a YouTube URL with the specified start time parameter.
+ * Reusable YouTube URL and validation logic.
  */
 
 const TubeMarkYouTubeUtils = {
   /**
    * Extracts the YouTube video ID from a given URL string.
+   * Handles:
+   * - https://www.youtube.com/watch?v=VIDEO_ID
+   * - https://youtube.com/watch?v=VIDEO_ID
+   * - https://youtu.be/VIDEO_ID
+   * - https://m.youtube.com/watch?v=VIDEO_ID
    * @param {string} url
    * @returns {string|null} Video ID or null if not found
    */
@@ -26,12 +20,24 @@ const TubeMarkYouTubeUtils = {
     try {
       const urlObj = new URL(url);
       if (urlObj.hostname.includes('youtube.com')) {
-        return urlObj.searchParams.get('v');
+        // Normal watch links (e.g. /watch?v=dQw4w9WgXcQ)
+        if (urlObj.pathname === '/watch') {
+          return urlObj.searchParams.get('v');
+        }
+        // Embed links (e.g. /embed/dQw4w9WgXcQ)
+        if (urlObj.pathname.startsWith('/embed/')) {
+          return urlObj.pathname.split('/')[2];
+        }
+        // Shorts links (e.g. /shorts/dQw4w9WgXcQ)
+        if (urlObj.pathname.startsWith('/shorts/')) {
+          return urlObj.pathname.split('/')[2];
+        }
       } else if (urlObj.hostname.includes('youtu.be')) {
-        return urlObj.pathname.substring(1);
+        // Shortened links (e.g. youtu.be/dQw4w9WgXcQ)
+        return urlObj.pathname.substring(1).split('?')[0];
       }
     } catch (e) {
-      // In case URL is not absolute or valid
+      // Return null if URL is completely malformed
     }
     return null;
   },
@@ -45,7 +51,12 @@ const TubeMarkYouTubeUtils = {
     if (!url) return false;
     try {
       const urlObj = new URL(url);
-      return urlObj.hostname.includes('youtube.com') && urlObj.pathname === '/watch';
+      const isYoutubeDomain = urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be');
+      if (!isYoutubeDomain) return false;
+
+      // Check if it has a valid video ID
+      const videoId = TubeMarkYouTubeUtils.getVideoId(url);
+      return !!videoId;
     } catch (e) {
       return false;
     }
