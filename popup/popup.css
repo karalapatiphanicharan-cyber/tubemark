@@ -232,18 +232,36 @@ body {
   outline: 2px solid #ffffff;
 }
 
+.save-btn.already-saved {
+  background-color: #2b2b2b;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.save-btn.already-saved:hover {
+  background-color: var(--bg-hover);
+}
+
+.save-btn.save-success {
+  background-color: #2ec4b6;
+  color: #ffffff;
+}
+
 /* Toast Message */
 .toast {
-  background-color: var(--toast-bg);
-  color: var(--text-primary);
-  border-left: 3px solid var(--toast-border);
+  background-color: #1e1e1e;
+  color: #ffffff;
+  border-left: 4px solid var(--accent-color);
   border-radius: 4px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 12px;
-  font-weight: 500;
-  margin-top: 6px;
+  font-weight: 600;
+  margin-top: 10px;
   transition: opacity 0.3s ease, transform 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .toast.hidden {
