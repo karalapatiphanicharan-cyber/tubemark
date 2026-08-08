@@ -174,6 +174,56 @@ const TubeMarkStorage = {
     if (!videoId) return null;
     const bookmarks = await TubeMarkStorage.getBookmarks();
     return bookmarks.find(b => b.videoId === videoId) || null;
+  },
+
+  /**
+   * Updates only the note of a bookmark by its unique ID.
+   * Preserves all other fields (id, videoId, title, channel, url, thumbnail, currentTime, duration, savedAt).
+   * @param {string} bookmarkId
+   * @param {string} note
+   * @returns {Promise<boolean>} True if successful
+   */
+  updateBookmarkNote: async (bookmarkId, note) => {
+    if (!bookmarkId) return false;
+
+    console.log("[TubeMark] updateBookmarkNote started for ID:", bookmarkId);
+    const bookmarks = await TubeMarkStorage.getBookmarks();
+    const index = bookmarks.findIndex(b => b.id === bookmarkId);
+
+    if (index === -1) {
+      console.warn("[TubeMark] updateBookmarkNote failed: Bookmark ID not found.");
+      return false;
+    }
+
+    // Preserve all fields, only update note field
+    bookmarks[index] = {
+      ...bookmarks[index],
+      note: typeof note === 'string' ? note : ''
+    };
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.set({ bookmarks }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Post-write verification
+      const verifyBookmarks = await TubeMarkStorage.getBookmarks();
+      const updatedItem = verifyBookmarks.find(b => b.id === bookmarkId);
+      if (!updatedItem || updatedItem.note !== note) {
+        throw new Error("Post-write note storage verification failed.");
+      }
+      console.log("[TubeMark] Note storage verification successful.");
+    } else {
+      console.warn('chrome.storage.local not found. Cannot persist changes.');
+    }
+
+    return true;
   }
 };
 

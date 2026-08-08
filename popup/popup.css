@@ -779,3 +779,119 @@ body {
   font-size: 10px;
   color: var(--text-secondary);
 }
+
+/* Edit Note Button Trigger Style */
+.edit-note-btn {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.edit-note-btn:hover {
+  background-color: var(--border-color);
+  border-color: var(--text-disabled);
+}
+
+.edit-note-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+}
+
+/* Inline Bookmark Note Editing Component */
+.bookmark-edit-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 4px;
+}
+
+.bookmark-edit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bookmark-edit-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+}
+
+.bookmark-edit-char-counter {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.bookmark-edit-char-counter.limit-reached {
+  color: var(--accent-color);
+}
+
+.bookmark-edit-textarea {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  min-height: 60px;
+  max-height: 120px;
+  overflow-y: auto;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.bookmark-edit-textarea:focus {
+  border-color: var(--accent-color);
+}
+
+.bookmark-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.bookmark-edit-cancel-btn {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.bookmark-edit-cancel-btn:hover {
+  background-color: var(--border-color);
+}
+
+.bookmark-edit-save-btn {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.bookmark-edit-save-btn:hover {
+  background-color: var(--accent-hover);
+}
