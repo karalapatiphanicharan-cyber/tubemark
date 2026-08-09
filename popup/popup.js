@@ -120,8 +120,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activeVideoId = typeof TubeMarkYouTubeUtils !== 'undefined'
           ? TubeMarkYouTubeUtils.getVideoId(activeTab.url)
           : null;
-        if (activeVideoId) {
-          await updateSaveButtonVisualState(activeVideoId);
+        const trimmedVideoId = (typeof activeVideoId === 'string') ? activeVideoId.trim() : '';
+        if (trimmedVideoId) {
+          await updateSaveButtonVisualState(trimmedVideoId);
         }
       }
     });
@@ -904,8 +905,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                       const activeVideoId = typeof TubeMarkYouTubeUtils !== 'undefined'
                         ? TubeMarkYouTubeUtils.getVideoId(activeTab.url)
                         : null;
-                      if (activeVideoId && activeVideoId === bookmark.videoId) {
-                        await updateSaveButtonVisualState(activeVideoId);
+                      const trimmedVideoId = (typeof activeVideoId === 'string') ? activeVideoId.trim() : '';
+                      if (trimmedVideoId && trimmedVideoId === bookmark.videoId) {
+                        await updateSaveButtonVisualState(trimmedVideoId);
                       }
                     }
                   } else {
@@ -1037,11 +1039,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Helper to check and update the Save Button visual states and pre-populate note field (Phase 5)
   async function updateSaveButtonVisualState(videoId) {
-    if (!saveBtn || !videoId) return;
+    const validVideoId = typeof videoId === 'string' ? videoId.trim() : '';
+    if (!saveBtn || !validVideoId) {
+      console.warn("[TubeMark] updateSaveButtonVisualState skipped: saveBtn or valid videoId missing.", { saveBtn, videoId });
+      return;
+    }
 
     try {
       if (typeof TubeMarkStorage !== 'undefined') {
-        const existingBookmark = await TubeMarkStorage.getBookmarkByVideoId(videoId);
+        const existingBookmark = await TubeMarkStorage.getBookmarkByVideoId(validVideoId);
         if (existingBookmark) {
           saveBtn.innerHTML = '<span>✓</span> Already Saved';
           saveBtn.className = 'save-btn already-saved';
@@ -1136,9 +1142,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
+        // Strictly validate videoId from freshestData (Bugfix requirements)
+        const validVideoId = typeof freshestData.videoId === 'string' ? freshestData.videoId.trim() : '';
+        if (!validVideoId) {
+          console.error("[TubeMark] Save failed: videoId is missing or invalid.");
+          showToast('Save failed: videoId missing.', true);
+          return;
+        }
+
         // Assemble Phase 5 bookmark object
         const bookmarkObject = {
-          videoId: freshestData.videoId,
+          videoId: validVideoId,
           title: freshestData.title,
           channel: freshestData.channel,
           url: freshestData.url,
@@ -1167,15 +1181,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           // Show visual success states
           showToast('✓ Bookmark saved');
-          await updateSaveButtonVisualState(freshestData.videoId);
+          await updateSaveButtonVisualState(validVideoId);
           await updateSavedBookmarksListState();
 
           // Temporarily show "✓ Saved" on button for feedback
           saveBtn.innerHTML = '<span>✓</span> Saved!';
           saveBtn.className = 'save-btn save-success';
 
-          setTimeout(() => {
-            updateSaveButtonVisualState(freshestData.videoId);
+          setTimeout(async () => {
+            try {
+              const activeTabAfterTimeout = await getActiveTab();
+              if (activeTabAfterTimeout && activeTabAfterTimeout.url) {
+                const currentVideoId = typeof TubeMarkYouTubeUtils !== 'undefined'
+                  ? TubeMarkYouTubeUtils.getVideoId(activeTabAfterTimeout.url)
+                  : null;
+                const trimmedCurrentVideoId = typeof currentVideoId === 'string' ? currentVideoId.trim() : '';
+                if (trimmedCurrentVideoId) {
+                  await updateSaveButtonVisualState(trimmedCurrentVideoId);
+                } else {
+                  console.warn("[TubeMark] Timeout callback: Current tab is not a YouTube video page.");
+                }
+              }
+            } catch (timeoutErr) {
+              console.error("[TubeMark] Error in save feedback timeout callback:", timeoutErr);
+            }
           }, 1500);
 
           console.log("[TubeMark] Save completed");
@@ -1405,7 +1434,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         currentDetectedData = data;
         setUIState('detected', currentDetectedData);
-        await updateSaveButtonVisualState(currentDetectedData.videoId);
+        const trimmedVideoId = (typeof currentDetectedData.videoId === 'string') ? currentDetectedData.videoId.trim() : '';
+        if (trimmedVideoId) {
+          await updateSaveButtonVisualState(trimmedVideoId);
+        } else {
+          console.error("[TubeMark] Loaded video has empty or invalid videoId.");
+          setUIState('error');
+        }
       } else {
         console.error("[TubeMark] Video metadata parsing returned success=false.");
         setUIState('error');
