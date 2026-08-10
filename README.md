@@ -306,45 +306,6 @@ Click the TubeMark extension icon to start saving videos.
 
 TubeMark is developed as a local unpacked Chrome extension.
 
-The development workflow is:
-
-```text
-GitHub Repository
-       │
-       ▼
-      Jules
-       │
-       ▼
- Code Changes
-       │
-       ▼
- GitHub
-       │
-       ▼
-    git pull
-       │
-       ▼
- Chrome Extensions
-       │
-       ▼
-     Reload
-       │
-       ▼
-     Test
-```
-
-To get the latest changes:
-
-```bash
-git pull origin main
-```
-
-Then reload TubeMark from:
-
-```text
-chrome://extensions
-```
-
 ---
 
 ## 🧪 Testing
